@@ -55,6 +55,16 @@ void print_token(Token token) {
         case TOKEN_IDENTIFIER:
             printf("IDENTIFIER");
             break;
+        case TOKEN_STRING_LITERAL:
+            printf("STRING_LITERAL | Lexeme: \"");
+            for (int j = 0; token.lexeme[j] != '\0'; j++) {
+                if (token.lexeme[j] == '\n') printf("\\n");
+                else if (token.lexeme[j] == '\t') printf("\\t");
+                else if (token.lexeme[j] == '\"') printf("\\\"");
+                else printf("%c", token.lexeme[j]);
+            }
+            printf("\" | Line: %d\n", token.line);
+            return;
         case TOKEN_EOF:
             printf("EOF");
             break;
@@ -62,7 +72,7 @@ void print_token(Token token) {
             printf("UNKNOWN");
     }
     printf(" | Lexeme: '%s' | Line: %d\n",
-           token.lexeme, token.line);
+            token.lexeme, token.line);
 }
 
 
@@ -200,6 +210,79 @@ Token get_next_token(const char *input, int *pos) {
     }
     c = input[*pos];
 
+    // TODO: Add string literal handling here
+    // Handle string literals
+    if (c == '"') {
+        int i = 0;
+        (*pos)++;  // pass opening quote
+        c = input[*pos];
+
+        while (c != '"' && c != '\0' && i < sizeof(token.lexeme) - 1) {
+            if (c == '\n' || c == '\0') {
+                // unterminated string
+                token.error = ERROR_INVALID_CHAR;
+                snprintf(token.lexeme, sizeof(token.lexeme), "Unterminated string");
+
+                // go to newline, skip processing
+                while (input[*pos] != '\0' && input[*pos] != '\n') {
+                    (*pos)++;
+                }
+                (*pos)++; // Move to the next line
+
+                return token; 
+            }
+
+            // Handle escape sequences
+            if (c == '\\') {
+                (*pos)++;
+                c = input[*pos];
+
+                switch (c) {
+                    case 'n': token.lexeme[i++] = '\\'; token.lexeme[i++] = 'n'; break;
+                    case 't': token.lexeme[i++] = '\\'; token.lexeme[i++] = 't'; break;
+                    case '\\': token.lexeme[i++] = '\\'; break;
+                    case '"': token.lexeme[i++] = '\"'; break;
+                    default:
+                        // invalid escape seq
+                        token.error = ERROR_INVALID_CHAR;
+                        snprintf(token.lexeme, sizeof(token.lexeme), "Invalid escape: \\%c", c);
+
+                        // skip line
+                        while (input[*pos] != '\0' && input[*pos] != '\n') {
+                            (*pos)++;
+                        }
+                        (*pos)++; // skip line
+
+                        return token;
+                }
+            } else {
+                token.lexeme[i++] = c;
+            }
+            (*pos)++;
+            c = input[*pos];
+        }
+
+        if (c == '"') {
+            token.lexeme[i] = '\0';
+            token.type = TOKEN_STRING_LITERAL;
+            (*pos)++;  // go past closing quote
+        } else {
+            //unterminated string
+            token.error = ERROR_INVALID_CHAR;
+            snprintf(token.lexeme, sizeof(token.lexeme), "Unterminated string");
+
+            // skip line
+            while (input[*pos] != '\0' && input[*pos] != '\n') {
+                (*pos)++;
+            }
+            (*pos)++; // Move to the next line
+
+            return token;
+        }
+
+        return token;
+    }
+
     // Handle numbers
     if (isdigit(c)) {
         int i = 0;
@@ -296,15 +379,21 @@ Token get_next_token(const char *input, int *pos) {
 
 int main() {
     const char *input = 
-"\
-// this is a comment\n\
-/* this is also\n\
- * a comment\n\
- */\n\
-int x = 123 + 456 - 789;\n\
-string x = \"hello\" + \"world\"\n\
-foo/* this is allowed too*/haha\n\
-"; // Test with multi-line input
+    "\
+    // this is a comment\n\
+    /* this is also\n\
+    * a comment\n\
+    */\n\
+    int x = 123 + 456 - 789;\n\
+    string x = \"hello\" + \"world\"\n\
+    foo/* this is allowed too*/haha\n\
+    " // Test with multi-line input
+    "string s = \"hello world\";\n"
+    "string s2 = \"string with \\\"escaped quotes\\\"\";\n"
+    "string s3 = \"newline\\ncharacter\";\n"
+    "string s4 = \"tab\\tcharacter\";\n"
+    "string s5 = \"unterminated string\n"  // Error case
+    "string s6 = \"invalid escape \\q sequence\";\n"; // Error case
 
     int position = 0;
     Token token;
@@ -318,4 +407,75 @@ foo/* this is allowed too*/haha\n\
     } while (token.type != TOKEN_EOF);
 
     return 0;
+
+    // Current Output:
+        // Analyzing input:
+        // // this is a comment
+        // /* this is also
+        // * a comment
+        // */
+        // int x = 123 + 456 - 789;
+        // string x = "hello" + "world"
+        // foo/* this is allowed too*/haha
+        // string s = "hello world";
+        // string s2 = "string with \"escaped quotes\"";
+        // string s3 = "newline\ncharacter";
+        // string s4 = "tab\tcharacter";
+        // string s5 = "unterminated string
+        // string s6 = "invalid escape \q sequence";
+
+
+        // Token: IDENTIFIER | Lexeme: ' ' | Line: 1
+        // Token: IDENTIFIER | Lexeme: ' ' | Line: 2
+        // Token: KEYWORD | Lexeme: 'int' | Line: 2
+        // Token: IDENTIFIER | Lexeme: 'x' | Line: 2
+        // Token: OPERATOR | Lexeme: '=' | Line: 2
+        // Token: NUMBER | Lexeme: '123' | Line: 2
+        // Token: OPERATOR | Lexeme: '+' | Line: 2
+        // Token: NUMBER | Lexeme: '456' | Line: 2
+        // Token: OPERATOR | Lexeme: '-' | Line: 2
+        // Token: NUMBER | Lexeme: '789' | Line: 2
+        // Token: KEYWORD | Lexeme: ';' | Line: 2
+        // Token: KEYWORD | Lexeme: 'string' | Line: 2
+        // Token: IDENTIFIER | Lexeme: 'x' | Line: 3
+        // Token: OPERATOR | Lexeme: '=' | Line: 3
+        // Token: STRING_LITERAL | Lexeme: "hello" | Line: 3
+        // Token: OPERATOR | Lexeme: '+' | Line: 3
+        // Token: STRING_LITERAL | Lexeme: "world" | Line: 3
+        // Token: IDENTIFIER | Lexeme: 'foo' | Line: 3
+        // Token: IDENTIFIER | Lexeme: 'haha' | Line: 4
+        // Token: KEYWORD | Lexeme: 'string' | Line: 4
+        // Token: KEYWORD | Lexeme: 's' | Line: 5
+        // Token: OPERATOR | Lexeme: '=' | Line: 5
+        // Token: STRING_LITERAL | Lexeme: "hello world" | Line: 5
+        // Token: KEYWORD | Lexeme: ';' | Line: 5
+        // Token: KEYWORD | Lexeme: 'string' | Line: 5
+        // Token: KEYWORD | Lexeme: 's' | Line: 6
+        // Token: NUMBER | Lexeme: '2' | Line: 6
+        // Token: OPERATOR | Lexeme: '=' | Line: 6
+        // Token: STRING_LITERAL | Lexeme: "string with \"escaped quotes\"" | Line: 6
+        // Token: KEYWORD | Lexeme: ';' | Line: 6
+        // Token: KEYWORD | Lexeme: 'string' | Line: 6
+        // Token: KEYWORD | Lexeme: 's' | Line: 7
+        // Token: NUMBER | Lexeme: '3' | Line: 7
+        // Token: OPERATOR | Lexeme: '=' | Line: 7
+        // Token: STRING_LITERAL | Lexeme: "newline\ncharacter" | Line: 7
+        // Token: KEYWORD | Lexeme: ';' | Line: 7
+        // Token: KEYWORD | Lexeme: 'string' | Line: 7
+        // Token: KEYWORD | Lexeme: 's' | Line: 8
+        // Token: NUMBER | Lexeme: '4' | Line: 8
+        // Token: OPERATOR | Lexeme: '=' | Line: 8
+        // Token: STRING_LITERAL | Lexeme: "tab\tcharacter" | Line: 8
+        // Token: KEYWORD | Lexeme: ';' | Line: 8
+        // Token: KEYWORD | Lexeme: 'string' | Line: 8
+        // Token: KEYWORD | Lexeme: 's' | Line: 9
+        // Token: NUMBER | Lexeme: '5' | Line: 9
+        // Token: OPERATOR | Lexeme: '=' | Line: 9
+        // Lexical Error at line 9: Invalid character 'Unterminated string'
+        // Token: KEYWORD | Lexeme: 'string' | Line: 9
+        // Token: KEYWORD | Lexeme: 's' | Line: 9
+        // Token: NUMBER | Lexeme: '6' | Line: 9
+        // Token: OPERATOR | Lexeme: '=' | Line: 9
+        // Lexical Error at line 9: Invalid character 'Invalid escape: \q'
+        // Token: EOF | Lexeme: 'EOF' | Line: 9
 }
