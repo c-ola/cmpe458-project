@@ -22,6 +22,7 @@ typedef enum {
     TOKEN_OPERATOR,     // e.g., "+", "-", "="
     TOKEN_KEYWORD,         // e.g., string, int, uint
     TOKEN_IDENTIFIER,   // e.g
+    TOKEN_DELIMITER,
     TOKEN_ERROR,
     TOKEN_NONE,
 } TokenType;

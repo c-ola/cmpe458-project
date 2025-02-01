@@ -141,16 +141,39 @@ int is_operator(char* str, int len) {
 }
 
 
+#define NUM_DELIMITERS 9
+
+char *delimiters[] = {
+    '}',
+    '{',
+    ']',
+    '[',
+    ')',
+    '(',
+    '>', // TODO Check if you want these or not.
+    '<',
+    ',', // special cuz no closing bracket
+};
+
+int is_delimiter(char str){
+    for(int i = 0; i < NUM_DELIMITERS; i++) {
+        if (strncmp(str, delimiters[i], 1) == 0) return 1;
+    }
+    return 0;
+}
+
 /* Get next token from input */
 Token get_next_token(const char *input, int *pos) {
     Token token = {TOKEN_ERROR, "", current_line, ERROR_NONE};
     char c;
 
     // Skip whitespace and track line numbers
-    while ((c = input[*pos]) != '\0' && (c == ' ' || c == '\n' || c == '\t')) {
-        if (c == '\n') {
-            current_line++;
-        }
+    while ((c = input[*pos]) != '\0' &&
+           (c == ' ' ||
+            c == '\n' ||
+            c == '\t'))
+    {
+        if (c == '\n') current_line++;
         (*pos)++;
     }
 
@@ -225,15 +248,41 @@ Token get_next_token(const char *input, int *pos) {
                 return token;
             }
         } 
-        else {
-            token.type = TOKEN_IDENTIFIER;
-        }
+        else token.type = TOKEN_IDENTIFIER;
         return token;
     }
 
-    // TODO: Add string literal handling here
+    // string literal handling
+    if (input[*pos] == '"' || input[*pos] == '\'') {
+        char toMatch = input[*pos];
+        int i = 0;
+        do {
+            token.lexeme[i++] = c;
+            
+            // checking that the string will actually include a closing bracket
+            if (i < (sizeof(token.lexeme) - 2)){ 
+                token.lexeme[i++] = c;
+                break;
+            }
+
+            (*pos)++;
+            c = input[*pos];
+
+        } while (c != toMatch);
+        token.lexeme[i] = '\0';
+        token.type = TOKEN_STRING;
+        return token;
+    }
 
     // TODO: Add delimiter handling here
+    if (is_delimiter(c)){
+        token.lexeme[0] = c;
+        token.lexeme[1] = '\0';
+        token.type = TOKEN_DELIMITER;
+        (*pos)++;
+        return token;
+    }
+
 
     // Handle invalid characters
     token.error = ERROR_INVALID_CHAR;
