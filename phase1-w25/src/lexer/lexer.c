@@ -151,9 +151,9 @@ int is_operator(char* str, int len) {
 }
 
 
-#define NUM_DELIMITERS 9
+#define NUM_DELIMITERS 10
 
-char *delimiters[] = {
+char delimiters[] = {
     '}',
     '{',
     ']',
@@ -163,11 +163,12 @@ char *delimiters[] = {
     '>', // TODO Check if you want these or not.
     '<',
     ',', // special cuz no closing bracket
+    ';',
 };
 
-int is_delimiter(char str){
+int is_delimiter(char c){
     for(int i = 0; i < NUM_DELIMITERS; i++) {
-        if (strncmp(str, delimiters[i], 1) == 0) return 1;
+        if (c == delimiters[i]) return 1;
     }
     return 0;
 }
