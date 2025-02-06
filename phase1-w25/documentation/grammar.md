@@ -1,9 +1,4 @@
-
-
-
-
 Keywords:
-
 - "int"
 - "uint"
 - "float"
@@ -20,10 +15,21 @@ Keywords:
 - "fn"
 
 
+Comments:
+    "//" Comment
+    "/*" Block Comment Start
+    "*/" Block Comment End
+
 Delimiters: 
 
     ";" End of Statement
-    "//" Comment
+    "{" Begin Scope
+    "}" End Scope
+    "(" Begin Parameters
+    ")" End Parameters
+    "[" Begin Index/ptr/array
+    "]" End Index/ptr/array
+    "," Comma 
 
 
 Operators:

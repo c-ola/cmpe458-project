@@ -1,0 +1,3 @@
+string s5 = \"unterminated string\n  // Error case
+"string s6 = \"invalid escape \\q sequence\";\n; // Error case
+int x ==== 123 + 5; // error case

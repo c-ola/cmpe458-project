@@ -1,0 +1,12 @@
+// this is a comment
+/* this is also
+* a comment
+*/
+int x = 123 + 456 - 789;
+string x = "hello" + "world"
+foo/* this is allowed too*/haha
+// Test with multi-line input
+string s = "hello world;"
+string s2 = "string with \"escaped quotes\";"
+string s3 = "newline\\ncharacter;"
+string s4 = "tab\tcharacter";

@@ -151,7 +151,7 @@ int is_operator(char* str, int len) {
 }
 
 
-#define NUM_DELIMITERS 10
+#define NUM_DELIMITERS 8
 
 char delimiters[] = {
     '}',
@@ -160,8 +160,6 @@ char delimiters[] = {
     '[',
     ')',
     '(',
-    '>', // TODO Check if you want these or not.
-    '<',
     ',', // special cuz no closing bracket
     ';',
 };
@@ -378,8 +376,11 @@ Token get_next_token(const char *input, int *pos) {
 
 // This is a basic lexer that handles numbers (e.g., "123", "456"), basic operators (+ and -), consecutive operator errors, whitespace and newlines, with simple line tracking for error reporting.
 
-int main() {
-    const char *input = 
+#define MAXBUFLEN 1000000
+
+int main(int argc, char* argv[]) {
+    char* input = malloc(MAXBUFLEN * sizeof(char));
+    const char* def =
     "\
     // this is a comment\n\
     /* this is also\n\
@@ -388,13 +389,30 @@ int main() {
     int x = 123 + 456 - 789;\n\
     string x = \"hello\" + \"world\"\n\
     foo/* this is allowed too*/haha\n\
-    " // Test with multi-line input
+    " // Test with multi-line input"
     "string s = \"hello world\";\n"
     "string s2 = \"string with \\\"escaped quotes\\\"\";\n"
     "string s3 = \"newline\\ncharacter\";\n"
     "string s4 = \"tab\\tcharacter\";\n"
     "string s5 = \"unterminated string\n"  // Error case
     "string s6 = \"invalid escape \\q sequence\";\n"; // Error case
+
+    if (argc == 2) {
+        const char* file = argv[1]; 
+        FILE *fp = fopen(file, "r");
+        if (fp != NULL) {
+            size_t new_len = fread(input, sizeof(char), MAXBUFLEN, fp);
+            if ( ferror( fp ) != 0 ) {
+                fputs("Error reading file", stderr);
+            } else {
+                input[new_len++] = '\0'; /* Just to be safe. */
+            }
+
+            fclose(fp);
+        }
+    } else {
+        strcpy(input, def);
+    }
 
     int position = 0;
     Token token;
@@ -406,7 +424,7 @@ int main() {
         last_token_type = token.type;
         print_token(token);
     } while (token.type != TOKEN_EOF);
-
+    free(input);
     return 0;
 
     // Current Output:
