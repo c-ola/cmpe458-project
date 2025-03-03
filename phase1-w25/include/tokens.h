@@ -25,7 +25,6 @@ typedef enum {
     TOKEN_DELIMITER,
     TOKEN_ERROR,
     TOKEN_NONE,
-    TOKEN_STRING_LITERAL,
 } TokenType;
 
 /* Error types for lexical analysis

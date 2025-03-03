@@ -3,7 +3,6 @@
 #include <ctype.h>
 #include <string.h>
 #include "../include/tokens.h"
-#include "../include/cfg.h"
 
 #define NUM_KEYWORDS 14
 #define NUM_OPERATORS 32
@@ -84,8 +83,5 @@ void print_error(ErrorType error, int line, const char *lexeme);
 void print_token(Token token);
 
 Token get_next_token(const char *input, int *pos, TokenType last_token_type);
-Token* make_table(char* in);
-void parse_table(Token* table);
-void init_states(State* ref);
-int token_type_to_state(TokenType tt)
+void print_token_stream(const char* input);
 
