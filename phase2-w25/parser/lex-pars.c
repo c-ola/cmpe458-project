@@ -1,16 +1,31 @@
-/* lexer.c */
-#include <stdio.h>
-#include <stdlib.h>
-#include <ctype.h>
-#include <string.h>
-#include "../../include/tokens.h"
-#include "../../include/cfg.h"
 
-// Line tracking
-static int current_line = 1;
-static TokenType last_token_type = TOKEN_NONE;
+#include "lex-pars.h"
+//lexer part
+int is_keyword(char* str, int len) {
+    for(int i = 0; i < NUM_KEYWORDS; i++) {
+        if (strncmp(str, keywords[i], len) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
 
-/* Print error messages for lexical errors */
+int is_operator(char* str, int len) {
+    for(int i = 0; i < NUM_OPERATORS; i++) {
+        if (strncmp(str, operators[i], len) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int is_delimiter(char c){
+    for(int i = 0; i < NUM_DELIMITERS; i++) {
+        if (c == delimiters[i]) return 1;
+    }
+    return 0;
+}
+
 void print_error(ErrorType error, int line, const char *lexeme) {
     printf("Lexical Error at line %d: ", line);
     switch (error) {
@@ -31,7 +46,6 @@ void print_error(ErrorType error, int line, const char *lexeme) {
     }
 }
 
-/* Print token information*/
 void print_token(Token token) {
     if (token.error != ERROR_NONE) {
         print_error(token.error, token.line, token.lexeme);
@@ -72,104 +86,8 @@ void print_token(Token token) {
             token.lexeme, token.line);
 }
 
-
-#define NUM_KEYWORDS 14
-
-char* keywords[] = {
-    "int",
-    "uint",
-    "float",
-    "string",
-    "char",
-    "object",
-    "if",
-    "else",
-    "for",
-    "while",
-    "loop",
-    "break",
-    "return",
-    "fn",
-};
-
-int is_keyword(char* str, int len) {
-    for(int i = 0; i < NUM_KEYWORDS; i++) {
-        if (strncmp(str, keywords[i], len) == 0) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-#define NUM_OPERATORS 32
-
-char* operators[] = {
-    "==",
-    "=",
-    "!",
-    "!=",
-    ">",
-    ">=",
-    "<",
-    "<=",
-    "+",
-    "-",
-    "*",
-    "/",
-    "%",
-    ">>",
-    "<<",
-    "&",
-    "&&",
-    "|",
-    "||",
-    "^",
-    "+=",
-    "-=",
-    "*=",
-    "/=",
-    "%=",
-    ">>=",
-    "<<=",
-    "&=",
-    "&&=",
-    "|=",
-    "||=",
-    "^=",
-};
-
-int is_operator(char* str, int len) {
-    for(int i = 0; i < NUM_OPERATORS; i++) {
-        if (strncmp(str, operators[i], len) == 0) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-
-#define NUM_DELIMITERS 8
-
-char delimiters[] = {
-    '}',
-    '{',
-    ']',
-    '[',
-    ')',
-    '(',
-    ',', // special cuz no closing bracket
-    ';',
-};
-
-int is_delimiter(char c){
-    for(int i = 0; i < NUM_DELIMITERS; i++) {
-        if (c == delimiters[i]) return 1;
-    }
-    return 0;
-}
-
-/* Get next token from input */
-Token get_next_token(const char *input, int *pos) {
+static int current_line = 1;
+Token get_next_token(const char *input, int *pos, TokenType last_token_type) {
     Token token = {TOKEN_ERROR, "", current_line, ERROR_NONE};
     char c;
 
@@ -369,127 +287,85 @@ Token get_next_token(const char *input, int *pos) {
     return token;
 }
 
-// This is a basic lexer that handles numbers (e.g., "123", "456"), basic operators (+ and -), consecutive operator errors, whitespace and newlines, with simple line tracking for error reporting.
+//parser
 
-#define MAXBUFLEN 1000000
+// returns a Token* which ends with a TOKEN_EOF
+Token* make_table(char* in){
+    Token* table = malloc(sizeof(Token) * MAX_TABLE_SIZE); // max 100000 lexemmes
+    
+    TokenType last = TOKEN_NONE;
+    Token current;
+    unsigned int position = 0;
+    unsigned int lexemmes = 0;
 
-int main(int argc, char* argv[]) {
-    char* input = malloc(MAXBUFLEN * sizeof(char));
-    const char* def =
-    "\
-    // this is a comment\n\
-    /* this is also\n\
-    * a comment\n\
-    */\n\
-    int x = 123 + 456 - 789;\n\
-    string x = \"hello\" + \"world\"\n\
-    foo/* this is allowed too*/haha\n\
-    " // Test with multi-line input"
-    "string s = \"hello world\";\n"
-    "string s2 = \"string with \\\"escaped quotes\\\"\";\n"
-    "string s3 = \"newline\\ncharacter\";\n"
-    "string s4 = \"tab\\tcharacter\";\n"
-    "string s5 = \"unterminated string\n"  // Error case
-    "string s6 = \"invalid escape \\q sequence\";\n"; // Error case
+    do{
+        current = get_next_token(in, &position, last);
+        last = current.type;
+        print_token(current);
 
-    if (argc == 2) {
-        const char* file = argv[1]; 
-        FILE *fp = fopen(file, "r");
-        if (fp != NULL) {
-            size_t new_len = fread(input, sizeof(char), MAXBUFLEN, fp);
-            if ( ferror( fp ) != 0 ) {
-                fputs("Error reading file", stderr);
-            } else {
-                input[new_len++] = '\0'; /* Just to be safe. */
-            }
+        table[lexemmes] = current;
+        lexemmes++;
+        
+    }while (current.type != TOKEN_EOF);
+    // will end up being EOF at the end
 
-            fclose(fp);
-        }
-    } else {
-        strcpy(input, def);
-    }
+    Token* new_table = malloc(sizeof(Token) * lexemmes + 1);
+    memcpy(table, new_table, (sizeof(Token) * lexemmes + 1));
+    return new_table;
+}
 
-    int position = 0;
-    Token token;
-
-    printf("Analyzing input:\n%s\n\n", input);
-
-    do {
-        token = get_next_token(input, &position);
-        last_token_type = token.type;
-        print_token(token);
-    } while (token.type != TOKEN_EOF);
-    free(input);
-    return 0;
-
-    // Current Output:
-        // Analyzing input:
-        // // this is a comment
-        // /* this is also
-        // * a comment
-        // */
-        // int x = 123 + 456 - 789;
-        // string x = "hello" + "world"
-        // foo/* this is allowed too*/haha
-        // string s = "hello world";
-        // string s2 = "string with \"escaped quotes\"";
-        // string s3 = "newline\ncharacter";
-        // string s4 = "tab\tcharacter";
-        // string s5 = "unterminated string
-        // string s6 = "invalid escape \q sequence";
+/* 
+    Anything past this hasnt really been tested 
+*/
 
 
-        // Token: IDENTIFIER | Lexeme: ' ' | Line: 1
-        // Token: IDENTIFIER | Lexeme: ' ' | Line: 2
-        // Token: KEYWORD | Lexeme: 'int' | Line: 2
-        // Token: IDENTIFIER | Lexeme: 'x' | Line: 2
-        // Token: OPERATOR | Lexeme: '=' | Line: 2
-        // Token: NUMBER | Lexeme: '123' | Line: 2
-        // Token: OPERATOR | Lexeme: '+' | Line: 2
-        // Token: NUMBER | Lexeme: '456' | Line: 2
-        // Token: OPERATOR | Lexeme: '-' | Line: 2
-        // Token: NUMBER | Lexeme: '789' | Line: 2
-        // Token: KEYWORD | Lexeme: ';' | Line: 2
-        // Token: KEYWORD | Lexeme: 'string' | Line: 2
-        // Token: IDENTIFIER | Lexeme: 'x' | Line: 3
-        // Token: OPERATOR | Lexeme: '=' | Line: 3
-        // Token: STRING_LITERAL | Lexeme: "hello" | Line: 3
-        // Token: OPERATOR | Lexeme: '+' | Line: 3
-        // Token: STRING_LITERAL | Lexeme: "world" | Line: 3
-        // Token: IDENTIFIER | Lexeme: 'foo' | Line: 3
-        // Token: IDENTIFIER | Lexeme: 'haha' | Line: 4
-        // Token: KEYWORD | Lexeme: 'string' | Line: 4
-        // Token: KEYWORD | Lexeme: 's' | Line: 5
-        // Token: OPERATOR | Lexeme: '=' | Line: 5
-        // Token: STRING_LITERAL | Lexeme: "hello world" | Line: 5
-        // Token: KEYWORD | Lexeme: ';' | Line: 5
-        // Token: KEYWORD | Lexeme: 'string' | Line: 5
-        // Token: KEYWORD | Lexeme: 's' | Line: 6
-        // Token: NUMBER | Lexeme: '2' | Line: 6
-        // Token: OPERATOR | Lexeme: '=' | Line: 6
-        // Token: STRING_LITERAL | Lexeme: "string with \"escaped quotes\"" | Line: 6
-        // Token: KEYWORD | Lexeme: ';' | Line: 6
-        // Token: KEYWORD | Lexeme: 'string' | Line: 6
-        // Token: KEYWORD | Lexeme: 's' | Line: 7
-        // Token: NUMBER | Lexeme: '3' | Line: 7
-        // Token: OPERATOR | Lexeme: '=' | Line: 7
-        // Token: STRING_LITERAL | Lexeme: "newline\ncharacter" | Line: 7
-        // Token: KEYWORD | Lexeme: ';' | Line: 7
-        // Token: KEYWORD | Lexeme: 'string' | Line: 7
-        // Token: KEYWORD | Lexeme: 's' | Line: 8
-        // Token: NUMBER | Lexeme: '4' | Line: 8
-        // Token: OPERATOR | Lexeme: '=' | Line: 8
-        // Token: STRING_LITERAL | Lexeme: "tab\tcharacter" | Line: 8
-        // Token: KEYWORD | Lexeme: ';' | Line: 8
-        // Token: KEYWORD | Lexeme: 'string' | Line: 8
-        // Token: KEYWORD | Lexeme: 's' | Line: 9
-        // Token: NUMBER | Lexeme: '5' | Line: 9
-        // Token: OPERATOR | Lexeme: '=' | Line: 9
-        // Lexical Error at line 9: Invalid character 'Unterminated string'
-        // Token: KEYWORD | Lexeme: 'string' | Line: 9
-        // Token: KEYWORD | Lexeme: 's' | Line: 9
-        // Token: NUMBER | Lexeme: '6' | Line: 9
-        // Token: OPERATOR | Lexeme: '=' | Line: 9
-        // Lexical Error at line 9: Invalid character 'Invalid escape: \q'
-        // Token: EOF | Lexeme: 'EOF' | Line: 9
+// using an LALR approach
+// stands for Look-Ahead LR with 1-symbol lookahead
+StateTable rules = {
+    SHIFT, SHIFT, EMPTY, EMPTY, EMPTY
+
+};
+
+// use rightmost derivation from left ot right
+void parse_table(Token* table){
+
+    int count = sizeof(table) / sizeof(Token);
+    Token* stack = malloc(sizeof(Token) * count);
+
+    // now follow context-free-grammar.md doc
+    // transition on non terminal will be a GOTO and transition on terminal is a shift
+    int curr_pos = 0;
+    int stack_pos = 0;
+    int complete = 0;
+
+    do{
+        if (table[curr_pos].type == TOKEN_EOF) complete = 1;
+
+        stack[stack_pos++] = table[curr_pos]; // push
+        stack_pos--; // pop
+        if (stack_pos == 0) complete = 1; // start symbol is reached
+
+    } while (!complete);
+    
+
+
+}
+
+/*
+    CFG TYPES 
+
+    Program Structure
+    Variable Declarations
+    Assignment Statements
+    Arithmetic Expressions
+    Boolean Expressions
+    Conditional Statements (if-else)
+    Loop Constructs (while, repeat-until)
+    Function Calls (if applicable)
+    Input/Output Operations (print, read)
+    Unique Language Features (repeat-until, built-in factorial, runtime error detection)
+*/
+
+int main(int argc, char* argv[]){
+    
 }
