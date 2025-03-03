@@ -318,16 +318,53 @@ Token* make_table(char* in){
     Anything past this hasnt really been tested 
 */
 
+void init_states(State* ref){
+    ref = malloc(sizeof(State)* STATES);
+    
+    // state 1
+    ref[0].opt1[0] = S_2;
+    ref[0].opt1[1] = S_1; // split
+    ref[0].opt2[0] = S_EOF;
+    
+    // state 2
+    ref[1].opt1[0] = S_3;
+    ref[1].opt1[1] = S_DELIMITER; // split
+    ref[1].opt2[0] = S_2;
+    ref[1].opt2[1] = S_OPERATOR;
+    ref[1].opt1[2] = S_2;
 
-// using an LALR approach
-// stands for Look-Ahead LR with 1-symbol lookahead
-StateTable rules = {
-    SHIFT, SHIFT, EMPTY, EMPTY, EMPTY
+    // state 3
+    ref[2].opt1[0] = S_4;
+    ref[2].opt2[0] = S_5;
+    
+    // state 4
+    ref[3].opt1[0] = S_LITERAL;
+    ref[3].opt2[0] = S_IDENTIFIER;
 
-};
+    // state 5
+    ref[4].opt1[0] = S_KEYWORD;
+    ref[4].opt1[1] = S_DELIMITER;
+    ref[4].opt1[2] = S_5;
+    ref[4].opt1[3] = S_DELIMITER;
+    ref[4].opt2[0] = S_6;
 
-// use rightmost derivation from left ot right
+    // state 6
+    ref[5].opt1[0] = S_6;
+    ref[5].opt1[1] = S_DELIMITER; 
+    ref[5].opt1[2] = S_6;
+    ref[5].opt2[0] = S_2;
+
+}
+
+int token_type_to_state(TokenType tt){
+
+}
+
+// use rightmost derivation from left to right (MUST EXPORT A SYNTAX TREE)
 void parse_table(Token* table){
+    State* ref; // state table to jump around on
+    init_states(&ref);
+    int curr_state = S_1;
 
     int count = sizeof(table) / sizeof(Token);
     Token* stack = malloc(sizeof(Token) * count);
@@ -346,8 +383,6 @@ void parse_table(Token* table){
         if (stack_pos == 0) complete = 1; // start symbol is reached
 
     } while (!complete);
-    
-
 
 }
 

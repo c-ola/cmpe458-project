@@ -4,7 +4,6 @@
 #include <ctype.h>
 #include <string.h>
 #include "../../include/tokens.h"
-#include "../../include/cfg.h"
 
 // Line tracking
 static int current_line = 1;

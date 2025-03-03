@@ -7,8 +7,13 @@ set(CMAKE_C_STANDARD 11)
 
 # Add include directory (this will be needed to add your tokens to your lexer)
 include_directories(${PROJECT_SOURCE_DIR}/phase1-w25/include)
+include_directories(${PROJECT_SOURCE_DIR}/phase2-w25/include)
 
 # Add executables when needed: Make sure you specify the path to your .c or .h file
 add_executable(my-mini-compiler
         phase1-w25/include/tokens.h
         phase1-w25/src/lexer/lexer.c)
+add_executable(parser
+        phase2-w25/parser/lex-pars.c
+        phase2-w25/include/tokens.h 
+        phase2-w25/include/cfg.h)

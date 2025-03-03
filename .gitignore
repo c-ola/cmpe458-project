@@ -1,3 +1,4 @@
 build/
 lexer.exe
 .vscode/
+CMakeFiles/
