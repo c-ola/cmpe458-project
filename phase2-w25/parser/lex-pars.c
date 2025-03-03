@@ -1,4 +1,3 @@
-
 #include "lex-pars.h"
 //lexer part
 int is_keyword(char* str, int len) {
@@ -288,6 +287,9 @@ Token get_next_token(const char *input, int *pos, TokenType last_token_type) {
 }
 
 //parser
+static const char* source;
+static int position;
+static Token current_token;
 
 // returns a Token* which ends with a TOKEN_EOF
 Token* make_table(char* in){
@@ -317,7 +319,27 @@ Token* make_table(char* in){
 /* 
     Anything past this hasnt really been tested 
 */
+void parser_init(const char* input){
+    source = input;
+    position = 0;
+    get_next_token(source, &position, TOKEN_NONE); // advance
+}
 
+static int match(TokenType type){
+    return current_token.type == type;
+}
+
+static void advance(){
+    current_token = get_next_token(source, &position, TOKEN_NONE);
+}
+
+static void expect(TokenType type){
+    if (match(type)) advance();
+    else{
+        print_error(ERROR_INVALID_CHAR, current_token.line, current_token.lexeme);
+        exit(1);
+    }
+}
 
 // using an LALR approach
 // stands for Look-Ahead LR with 1-symbol lookahead

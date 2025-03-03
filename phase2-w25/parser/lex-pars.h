@@ -86,3 +86,10 @@ void print_token(Token token);
 Token get_next_token(const char *input, int *pos, TokenType last_token_type);
 Token* make_table(char* in);
 
+void parser_init(const char* input);
+static int match(TokenType type);
+static void advance();
+static void expect(TokenType type);
+
+
+
