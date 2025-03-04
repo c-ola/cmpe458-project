@@ -1,4 +1,6 @@
 build/
-lexer.exe
 .vscode/
 CMakeFiles/
+compile_commands.json
+.cache/
+

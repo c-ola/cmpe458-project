@@ -1,4 +1,4 @@
-#include "../include/lexer.h"
+#include "lexer.h"
 //lexer part
 int is_keyword(char* str, int len) {
     for(int i = 0; i < NUM_KEYWORDS; i++) {

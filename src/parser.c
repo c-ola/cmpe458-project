@@ -1,6 +1,6 @@
+#include "lexer.h"
+#include "parser.h"
 
-#include "../include/lexer.h"
-#include "../include/parser.h"
 //parser
 // returns a Token* which ends with a TOKEN_EOF
 Token* make_table(char* in){
@@ -124,5 +124,5 @@ int main(int argc, char* argv[]){
     char* input = "int x = 5;";
 
     printf("Analyzing input:\n%s\n\n", input);
-    print_token_stream('c');
+    print_token_stream(input);
 }

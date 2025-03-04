@@ -1,5 +1,5 @@
-#ifndef CFG
-#define CFG
+#ifndef PARSER_H
+#define PARSER_H
 
 #include "tokens.h"
 
@@ -34,10 +34,13 @@ typedef enum {
 } ParseError;
 
 // astnode
-typedef struct{
+typedef struct _ASTN {
     ASTType type;
     Token current;
-    ASTN left;
-    ASTN right;
+    struct _ASTN* left;
+    struct _ASTN* right;
 } ASTN;
+
+static ASTN* create_node(ASTType type, Token* t);
+
 #endif
