@@ -3,4 +3,8 @@ build/
 CMakeFiles/
 compile_commands.json
 .cache/
-
+Debug
+test
+*.vcxproj*
+cmake_install.cmake
+compiler.sln

@@ -31,7 +31,8 @@ Token* make_table(char* in){
     Anything past this hasnt really been tested 
 */
 
-static int lookahead(TokenType l, Token* table, int pos){
+int pos;
+static int lookahead(TokenType l, Token* table){
     return l == table[pos+1].type;
 }
 static int match(TokenType type, Token t) {
@@ -45,7 +46,7 @@ void parse_table(Token* table){
     int count = sizeof(table) / sizeof(Token);
     int* stack = malloc(sizeof(Token) * count * 3);
 
-    int curr_pos = 0;               // amount of tokens that have been processed
+    pos = 0;               // amount of tokens that have been processed
     int stack_pos = 0;              // pretty basic
     int complete = 0, error = 0;    // completion and if with errors
     int state = 0;
@@ -58,10 +59,10 @@ void parse_table(Token* table){
     while(1){
         // either shift and modify state or reduce using some rule
         stack[stack_pos++] = state; // push state to stack
-        t = table[curr_pos].type;
+        t = table[pos].type;
         switch (state){
             case 0: // S
-                if (!lookahead(TOKEN_EOF, table, curr_pos)){
+                if (!lookahead(TOKEN_EOF, table)){
                     stack[stack_pos++] = t;
                     state = 1;
                 } else complete = 1;
@@ -71,15 +72,12 @@ void parse_table(Token* table){
                 
             
                 break;
-            case 2: // K'
+            case 2: // S
+
                 break;
-            case 3: // S
+            case 3: // E
                 break;
-            case 4: // S'
-                break;
-            case 5: // E
-                break;
-            case 6: // E'
+            case 4: // V
                 if (t == TOKEN_NUMBER || t == TOKEN_STRING || t == TOKEN_FLOAT  || t == TOKEN_IDENTIFIER)
                     // reduce and add to tree
                     {

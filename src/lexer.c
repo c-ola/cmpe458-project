@@ -65,7 +65,7 @@ void print_token(Token token) {
         case TOKEN_IDENTIFIER:
             printf("IDENTIFIER");
             break;
-        case TOKEN_STRING_LITERAL:
+        case TOKEN_STRING:
             printf("STRING_LITERAL | Lexeme: \"");
             for (int j = 0; token.lexeme[j] != '\0'; j++) {
                 if (token.lexeme[j] == '\n') printf("\\n");
@@ -75,11 +75,14 @@ void print_token(Token token) {
             }
             printf("\" | Line: %d\n", token.line);
             return;
+        case TOKEN_DELIMITER:
+            printf("DELIMITER");
+            break;
         case TOKEN_EOF:
             printf("EOF");
             break;
         default:
-            printf("UNKNOWN");
+            printf("UNKNOWN %d", token.type);
     }
     printf(" | Lexeme: '%s' | Line: %d\n",
             token.lexeme, token.line);
@@ -173,24 +176,6 @@ Token get_next_token(const char *input, int *pos, TokenType last_token_type) {
             (*pos)++;
             c = input[*pos];
         }
-
-        // if (c == '"') {
-        //     token.lexeme[i] = '\0';
-        //     token.type = TOKEN_STRING_LITERAL;
-        //     (*pos)++;  // go past closing quote
-        // } else {
-        //     //unterminated string
-        //     token.error = ERROR_INVALID_CHAR;
-        //     snprintf(token.lexeme, sizeof(token.lexeme), "Unterminated string");
-
-        //     // skip line
-        //     while (input[*pos] != '\0' && input[*pos] != '\n') {
-        //         (*pos)++;
-        //     }
-        //     (*pos)++; // Move to the next line
-
-        //     return token;
-        // }
 
         return token;
     }
