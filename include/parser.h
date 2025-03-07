@@ -15,6 +15,14 @@ typedef enum {
 } Action;
 
 typedef enum {
+    R_S,
+    R_A,
+    R_B,
+    R_C,
+    R_D,
+} RULE;
+
+typedef enum {
     AST_PROGRAM,        // Program node
     AST_VARDECL,        // Variable declaration (int x)
     AST_ASSIGN,         // Assignment (x = 5)

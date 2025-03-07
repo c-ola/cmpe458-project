@@ -51,47 +51,78 @@ void parse_table(Token* table){
     int complete = 0, error = 0;    // completion and if with errors
     int state = 0;
     TokenType t;
+    Token current;
 
     // stack[stack_pos++] = table[curr_pos++]; // shift
     // stack_pos--;                            // reduce 
-    // state = stack[--stack_pos]              // reduce part 2 state should equal what was put on the stack
+    // state = stack[--stack_pos];             // reduce part 2 state should equal what was put on the stack
 
     // figure out tree stuff TODO
     while(1){
         // either shift and modify state or reduce using some rule
         stack[stack_pos++] = state; // push state to stack
-        t = table[pos].type;
+        current = table[pos];
+        t = current.type;
+
+        // since we are using enums, if the stack position is odd, it must be a goto so use other switch
+        if (stack_pos/2 == 0)
         switch (state){
-            case 0: // S
-                if (!lookahead(TOKEN_EOF, table)){
+            case R_S:
+                if (match(TOKEN_EOF, current))
+                {
+                    complete = 1;
+                } 
+                else
+                {
                     stack[stack_pos++] = t;
                     state = 1;
-                } else complete = 1;
-                
+                }
                 break;
-            case 1: // K             
+            case R_A:           
             
                 break;
-            case 2: // S
+            case R_B:
 
                 break;
-            case 3: // E
-                if (lookahead(TOKEN_OPERATOR, table)){  // shift
+            case R_C:
+                if (lookahead(TOKEN_OPERATOR, table))
+                {  // shift
                     stack[stack_pos++] = t;
-                }else{                                  // pop
+                }
+                else
+                {                                  // pop
                     
                 }
                 break;
-            case 4: // V
-                if (t == TOKEN_NUMBER || t == TOKEN_STRING || t == TOKEN_FLOAT  || t == TOKEN_IDENTIFIER)
-                    // reduce and add to tree
+            case R_D:
+                if (t == TOKEN_NUMBER || t == TOKEN_STRING || t == TOKEN_FLOAT || t == TOKEN_IDENTIFIER)
                     {
-
+                        // reduce and add to tree
+                        stack_pos--;
+                        state = stack[--stack_pos];
                     }
+                else ;  // error
                 break;
+                
             }
+        else
+        switch(state){
+            case R_S:
+                break;
+            case R_A:
+                break;
+            case R_B:
+                break;
+            case R_C:
+                break;
+            case R_D:
+                break;
+        }
+
         if (complete) break;
     }
+    // after the while loop post processing may happen for example to change ASTType and stuff.
+
 }
 
 /*
