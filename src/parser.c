@@ -53,7 +53,8 @@ void parse_table(Token* table){
     TokenType t;
 
     // stack[stack_pos++] = table[curr_pos++]; // shift
-    // stack_pos--;                            // reduce
+    // stack_pos--;                            // reduce 
+    // state = stack[--stack_pos]              // reduce part 2 state should equal what was put on the stack
 
     // figure out tree stuff TODO
     while(1){
@@ -68,14 +69,18 @@ void parse_table(Token* table){
                 } else complete = 1;
                 
                 break;
-            case 1: // K
-                
+            case 1: // K             
             
                 break;
             case 2: // S
 
                 break;
             case 3: // E
+                if (lookahead(TOKEN_OPERATOR, table)){  // shift
+                    stack[stack_pos++] = t;
+                }else{                                  // pop
+                    
+                }
                 break;
             case 4: // V
                 if (t == TOKEN_NUMBER || t == TOKEN_STRING || t == TOKEN_FLOAT  || t == TOKEN_IDENTIFIER)
@@ -103,6 +108,26 @@ void parse_table(Token* table){
     Input/Output Operations (print, read)
     Unique Language Features (repeat-until, built-in factorial, runtime error detection)
 */
+
+void print_ast(ASTN *node, int level) {
+    if (!node) return;
+
+    // Indent and print node details
+    for (int i = 0; i < level; i++) printf("  ");
+    switch (node->type) {
+        case AST_PROGRAM:
+            printf("Program\n");
+            break;
+        case AST_VARDECL:
+            printf("VarDecl: %s\n", node->current.lexeme);
+            break;
+        // Add more node type printings
+    }
+
+    // Recursively print children
+    print_ast(node->left, level + 1);
+    print_ast(node->right, level + 1);
+}
 
 static ASTN *create_node(ASTType type, Token* t) {
     ASTN *node = malloc(sizeof(ASTN));
