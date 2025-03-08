@@ -20,7 +20,15 @@ int is_keyword(char* str, int len) {
 
 int is_operator(char* str, int len) {
     for (int i = 0; i < NUM_OPERATORS; i++) {
-        if (strncmp(str, operators[i], len) == 0 && operators[i][len] == '\0') {
+        if (strncmp(str, operators[i], len) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+int is_operator_start(char c) {
+    for (int i = 0; i < NUM_OPERATORS; i++) {
+        if (c == operators[i][0]) {
             return 1;
         }
     }
@@ -242,7 +250,7 @@ Token get_next_token(const char *input, int *pos, TokenType last_token_type) {
         return token;
     }
 
-    // If c is a letter or underscore => parse identifier/keyword/operator
+    // If c is a letter or underscore => parse identifier/keyword
     if (isalpha(c) || c == '_') {
         int i = 0;
         while ((isalpha(c) || c == '_') && i < (int)sizeof(token.lexeme) - 1) {
@@ -256,21 +264,31 @@ Token get_next_token(const char *input, int *pos, TokenType last_token_type) {
         if (is_keyword(token.lexeme, i)) {
             token.type = TOKEN_KEYWORD;
         }
-        else if (is_operator(token.lexeme, i)) {
-            token.type = TOKEN_OPERATOR;
-            // check consecutive operators
-            if (last_token_type == TOKEN_OPERATOR) {
-                token.error = ERROR_CONSECUTIVE_OPERATORS;
-            }
-        }
         else {
             token.type = TOKEN_IDENTIFIER;
         }
         return token;
     }
 
+    if (is_operator_start(c)) {
+        int i = 0;
+        while ((c != ' ' && c != '\n') && i < sizeof(token.lexeme)) {
+            token.lexeme[i++] = c;
+            (*pos)++;
+            c = input[*pos];
+        }
+        if (is_operator(token.lexeme, i)) {
+            token.type = TOKEN_OPERATOR;
+            // check consecutive operators
+            if (last_token_type == TOKEN_OPERATOR) {
+                token.error = ERROR_CONSECUTIVE_OPERATORS;
+            }
+        }
+        return token;
+    }
+
     //  handle single-char or multi-char operators like +, -, *, /, ==, !=, etc.
-    if (is_operator(&c, 1)) {
+    /*if (is_operator(&c)) {
         token.lexeme[0] = c;
         token.lexeme[1] = '\0';
         token.type = TOKEN_OPERATOR;
@@ -280,7 +298,7 @@ Token get_next_token(const char *input, int *pos, TokenType last_token_type) {
             token.error = ERROR_CONSECUTIVE_OPERATORS;
         }
         return token;
-    }
+    }*/
 
     //  reach here => unknown or invalid character
     token.error = ERROR_INVALID_CHAR;

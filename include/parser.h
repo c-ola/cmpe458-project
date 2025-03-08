@@ -14,6 +14,7 @@ typedef enum {
     AST_REPEAT,
     AST_PRINT,
     AST_FUNCTION_CALL,
+    AST_FUNCTION_ARGS,
     AST_BINOP,
     AST_UNARYOP,
     AST_LITERAL,

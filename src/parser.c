@@ -1,5 +1,6 @@
 /* parser.c */
 #include "lexer.h"
+#include "tokens.h"
 #include "parser.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,23 +12,71 @@ static int isDelimiter(const Token t, const char *delim);
 
 /* Forward declarations to stop code from yelling at me */
 static ASTNode* parse_program(void);
-static ASTNode* parse_expression(void);
+static ASTNode* parse_expression(int min_precedence);
 static ASTNode* parse_declaration(void);
 static ASTNode* parse_assignment(void);
 static ASTNode* parse_block(void);
-static ASTNode* parse_if_statement(void);
+static ASTNode*parse_if_statement(void);
 static ASTNode* parse_while_statement(void);
 static ASTNode* parse_repeat_until(void);
 static ASTNode* parse_print_statement(void);
 static ASTNode* parse_statement(void);
 static ASTNode* parse_primary(void);
-static ASTNode* parse_unary(void);
-static ASTNode* parse_factor(void);
-static ASTNode* parse_term(void);
-static ASTNode* parse_comparison(void);
-static ASTNode* parse_equality(void);
-static void parse_error(const char* message);
-static void expectKeyword(const char* kw);
+static void PARSE_ERROR(const char* message);
+static ASTNode* parse_function(void);
+
+
+const char* TYPES[] = {"int", "uint", "string", "float", "char"};
+const char* KEYWORDS[] = {"while", "repeat", "for"};
+const char* ASSIGNMENTS[] = {"=", "+=", "-=", "/=", "*=", "%=", "&=", "|=", "<<=", ">>="};
+
+const char* UNARY[] = { "++", "--", "~", "!", };
+const char* FACTOR[] = { "*", "/", "%"};
+const char* ADD_SUB[] = { "+", "-"};
+const char* BITSHIFTS[] = { "<<", ">>"};
+const char* COMPARISON[] = { "<=", "=>", "<", ">"};
+const char* EQUALITY[] = { "!=", "==" };
+const char* BITAND[] = { "&" };
+const char* BITXOR[] = { "^" };
+const char* BITOR[] = { "|" };
+const char* LOGAND[] = { "&&" };
+const char* LOGOR[] = { "||" };
+
+static int str_is_in(const char* str, const char* arr[], int num) {
+    for (int i = 0; i < num; i++) {
+        if (!strcmp(str, arr[i])) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int get_precedence(const char* op) {
+    int result = 0;
+    if (str_is_in(op, UNARY, sizeof(UNARY)/sizeof(char*)))
+        result = 1;
+    if (str_is_in(op, FACTOR, sizeof(FACTOR)/sizeof(char*)))
+        result = 2;
+    if (str_is_in(op, ADD_SUB, sizeof(ADD_SUB)/sizeof(char*)))
+        result = 3;
+    if (str_is_in(op, BITSHIFTS, sizeof(BITSHIFTS)/sizeof(char*)))
+        result = 4;
+    if (str_is_in(op, COMPARISON, sizeof(COMPARISON)/sizeof(char*)))
+        result = 5;
+    if (str_is_in(op, EQUALITY, sizeof(EQUALITY)/sizeof(char*)))
+        result = 6;
+    if (str_is_in(op, BITAND, sizeof(BITAND)/sizeof(char*)))
+        result = 7;
+    if (str_is_in(op, BITXOR, sizeof(BITXOR)/sizeof(char*)))
+        result = 8;
+    if (str_is_in(op, BITOR, sizeof(BITOR)/sizeof(char*)))
+        result = 9;
+    if (str_is_in(op, LOGAND, sizeof(LOGAND)/sizeof(char*)))
+        result = 10;
+    if (str_is_in(op, LOGOR, sizeof(LOGOR)/sizeof(char*)))
+        result = 11;
+    return 11 - result;
+}
 
 /*
   Global parser state
@@ -35,6 +84,14 @@ static void expectKeyword(const char* kw);
 static Token* g_tokens  = NULL; 
 static int    g_position= 0;
 static Token  g_current;
+
+
+#define PARSE_ERROR(message, ...)\
+    fprintf(stderr, "\n[PARSER ERROR] Parse Error near token '%s'; \n\t Error: " message "\n", g_current.lexeme, ##__VA_ARGS__);\
+    exit(0);\
+
+#define PARSE_INFO(message, ...)\
+    fprintf(stdout, "[PARSER DEBUG] " message , ##__VA_ARGS__);\
 
 /*
 Some Helper Functions
@@ -54,21 +111,15 @@ static void advance() {
     if (g_current.type != TOKEN_EOF) {
         g_position++;
     }
-    printf("[DEBUG] advance() -> token='%s' (type=%d)\n",
+    PARSE_INFO("advance() -> token='%s' (type=%d)\n",
            g_current.lexeme, g_current.type);
-}
-
-static void parse_error(const char* message) {
-    fprintf(stderr, "\n[DEBUG] Parse Error near token '%s': %s\n",
-            g_current.lexeme, message);
-    exit(1);
 }
 
 /*
  AST Node Creation & Print
 */
 ASTNode* create_node(ASTType type, const Token* tk) {
-    printf("[DEBUG] create_node(type=%d, token='%s')\n",
+    PARSE_INFO("create_node(type=%d, token='%s')\n",
            type, tk->lexeme);
 
     ASTNode* node = (ASTNode*)malloc(sizeof(ASTNode));
@@ -93,37 +144,39 @@ ASTNode* create_node_simple(ASTType type) {
 
 static void print_ast_recursive(ASTNode *node, int level) {
     if (!node) return;
-    for (int i = 0; i < level; i++) printf("  ");
+    for (int i = 0; i < level; i++) PARSE_INFO("  ");
 
     switch (node->type) {
         case AST_PROGRAM:
-            printf("Program\n"); break;
+            PARSE_INFO("Program\n"); break;
         case AST_BLOCK:
-            printf("Block\n"); break;
+            PARSE_INFO("Block\n"); break;
         case AST_VARDECL:
-            printf("VarDecl: %s\n", node->current.lexeme); break;
+            PARSE_INFO("VarDecl: %s\n", node->current.lexeme); break;
         case AST_ASSIGN:
-            printf("Assignment to: %s\n", node->current.lexeme); break;
+            PARSE_INFO("Assignment to: %s\n", node->current.lexeme); break;
         case AST_IF:
-            printf("If\n"); break;
+            PARSE_INFO("If\n"); break;
         case AST_WHILE:
-            printf("While\n"); break;
+            PARSE_INFO("While\n"); break;
         case AST_REPEAT:
-            printf("RepeatUntil\n"); break;
+            PARSE_INFO("RepeatUntil\n"); break;
         case AST_PRINT:
-            printf("Print\n"); break;
+            PARSE_INFO("Print\n"); break;
         case AST_FUNCTION_CALL:
-            printf("FunctionCall: %s\n", node->current.lexeme); break;
+            PARSE_INFO("FunctionCall: %s\n", node->current.lexeme); break;
+        case AST_FUNCTION_ARGS:
+            PARSE_INFO("Function Args: %s\n", node->current.lexeme); break;
         case AST_BINOP:
-            printf("BinOp: %s\n", node->current.lexeme); break;
+            PARSE_INFO("BinOp: %s\n", node->current.lexeme); break;
         case AST_UNARYOP:
-            printf("UnaryOp: %s\n", node->current.lexeme); break;
+            PARSE_INFO("UnaryOp: %s\n", node->current.lexeme); break;
         case AST_LITERAL:
-            printf("Literal: %s\n", node->current.lexeme); break;
+            PARSE_INFO("Literal: %s\n", node->current.lexeme); break;
         case AST_IDENTIFIER:
-            printf("Identifier: %s\n", node->current.lexeme); break;
+            PARSE_INFO("Identifier: %s\n", node->current.lexeme); break;
         default:
-            printf("Unknown AST Node\n"); break;
+            PARSE_INFO("Unknown AST Node\n"); break;
     }
     if (node->left)  print_ast_recursive(node->left,  level+1);
     if (node->right) print_ast_recursive(node->right, level+1);
@@ -146,7 +199,7 @@ void print_ast(ASTNode* root) {
  Build Token Table
 */
 Token* make_table(char* in) {
-    printf("[DEBUG] make_table()\n");
+    PARSE_INFO("make_table()\n");
     Token* table = malloc(sizeof(Token) * MAX_TABLE_SIZE);
     TokenType last = TOKEN_NONE;
     Token current;
@@ -163,7 +216,7 @@ Token* make_table(char* in) {
     memcpy(new_table, table, sizeof(Token) * (lexemmes + 1));
     free(table);
 
-    printf("[DEBUG] make_table -> generated %d tokens\n", lexemmes);
+    PARSE_INFO("make_table -> generated %d tokens\n", lexemmes);
     return new_table;
 }
 
@@ -172,26 +225,26 @@ Token* make_table(char* in) {
 */
 
 static ASTNode* parse_primary() {
-    printf("[DEBUG] parse_primary -> current='%s'\n", g_current.lexeme);
+    PARSE_INFO("parse_primary -> current='%s'\n", g_current.lexeme);
 
     if (isDelimiter(g_current, "(")) {
-        printf("[DEBUG] parse_primary -> '(' found\n");
+        PARSE_INFO("parse_primary -> '(' found\n");
         advance();
-        ASTNode* expr = parse_expression();
+        ASTNode* expr = parse_expression(0);
         if (!isDelimiter(g_current, ")")) {
-            parse_error("Expected ')' after expression in parse_primary");
+            PARSE_ERROR("Expected ')' after expression in parse_primary");
         }
         advance(); // consume ")"
         return expr;
     }
     if (g_current.type == TOKEN_NUMBER) {
-        printf("[DEBUG] parse_primary -> NUMBER '%s'\n", g_current.lexeme);
+        PARSE_INFO("parse_primary -> NUMBER '%s'\n", g_current.lexeme);
         ASTNode* node = create_node(AST_LITERAL, &g_current);
         advance();
         return node;
     }
     if (g_current.type == TOKEN_STRING) {
-        printf("[DEBUG] parse_primary -> STRING '%s'\n", g_current.lexeme);
+        PARSE_INFO("parse_primary -> STRING '%s'\n", g_current.lexeme);
         ASTNode* node = create_node(AST_LITERAL, &g_current);
         advance();
         return node;
@@ -201,7 +254,7 @@ static ASTNode* parse_primary() {
         Token id = g_current;
         advance();
         if (isDelimiter(g_current, "(")) {
-            printf("[DEBUG] parse_primary -> function call\n");
+            PARSE_INFO("parse_primary -> function call\n");
             ASTNode* callNode = create_node(AST_FUNCTION_CALL, &id);
             advance(); // consume "("
             ASTNode* argHead = NULL;
@@ -209,7 +262,7 @@ static ASTNode* parse_primary() {
             while (!isDelimiter(g_current, ")") &&
                    g_current.type != TOKEN_EOF)
             {
-                ASTNode* arg = parse_expression();
+                ASTNode* arg = parse_expression(0);
                 if (!argHead) argHead = arg;
                 else          argTail->next = arg;
                 argTail = arg;
@@ -221,119 +274,44 @@ static ASTNode* parse_primary() {
                 }
             }
             if (!isDelimiter(g_current, ")")) {
-                parse_error("Expected ')' after function arguments in parse_primary");
+                PARSE_ERROR("Expected ')' after function arguments in parse_primary");
             }
             advance();
             callNode->body = argHead;
             return callNode;
         } else {
-            printf("[DEBUG] parse_primary -> identifier '%s'\n", id.lexeme);
+            PARSE_INFO("parse_primary -> identifier '%s'\n", id.lexeme);
             ASTNode* idNode = create_node(AST_IDENTIFIER, &id);
             return idNode;
         }
     }
+
     // Error if we get here
-    parse_error("Unexpected token in parse_primary");
+    PARSE_ERROR("Unexpected token in parse_primary");
     return NULL;
 }
 
-static ASTNode* parse_unary() {
-    printf("[DEBUG] parse_unary -> current='%s'\n", g_current.lexeme);
-    if (g_current.type == TOKEN_OPERATOR) {
-        if (!strcmp(g_current.lexeme, "+") ||
-            !strcmp(g_current.lexeme, "-") ||
-            !strcmp(g_current.lexeme, "!"))
-        {
-            Token op = g_current;
-            printf("[DEBUG] parse_unary -> unary operator '%s'\n", op.lexeme);
-            advance();
-            ASTNode* right = parse_unary();
-            ASTNode* node = create_node(AST_UNARYOP, &op);
-            node->right = right;
-            return node;
+// Parse expression based on operator precedence
+static ASTNode* parse_expression(int min_precedence) {
+    PARSE_INFO("parse_expression -> start, current='%s'\n", g_current.lexeme);
+    ASTNode* left = parse_primary();
+
+    while (g_current.type == TOKEN_OPERATOR) {
+        Token op = g_current; 
+        int prec = get_precedence(g_current.lexeme);
+        if (prec < min_precedence) {
+            break;
         }
-    }
-    return parse_primary();
-}
-
-static ASTNode* parse_factor() {
-    printf("[DEBUG] parse_factor -> start, current='%s'\n", g_current.lexeme);
-    ASTNode* left = parse_unary();
-    while (g_current.type == TOKEN_OPERATOR &&
-           (!strcmp(g_current.lexeme, "*") || !strcmp(g_current.lexeme, "/")))
-    {
-        printf("[DEBUG] parse_factor -> saw '%s'\n", g_current.lexeme);
-        Token op = g_current;
         advance();
-        ASTNode* right = parse_unary();
+        ASTNode* right = parse_expression(prec + 1);
         ASTNode* binNode = create_node(AST_BINOP, &op);
-        binNode->left  = left;
+        binNode->left = left;
         binNode->right = right;
         left = binNode;
     }
-    return left;
-}
 
-static ASTNode* parse_term() {
-    printf("[DEBUG] parse_term -> start, current='%s'\n", g_current.lexeme);
-    ASTNode* left = parse_factor();
-    while (g_current.type == TOKEN_OPERATOR &&
-           (!strcmp(g_current.lexeme, "+") || !strcmp(g_current.lexeme, "-")))
-    {
-        printf("[DEBUG] parse_term -> saw '%s'\n", g_current.lexeme);
-        Token op = g_current;
-        advance();
-        ASTNode* right = parse_factor();
-        ASTNode* binNode = create_node(AST_BINOP, &op);
-        binNode->left  = left;
-        binNode->right = right;
-        left = binNode;
-    }
+    PARSE_INFO("parse_expression -> end %s\n", g_current.lexeme);
     return left;
-}
-
-static ASTNode* parse_comparison() {
-    printf("[DEBUG] parse_comparison -> start, current='%s'\n", g_current.lexeme);
-    ASTNode* left = parse_term();
-    while (g_current.type == TOKEN_OPERATOR &&
-           (!strcmp(g_current.lexeme, "<")  || !strcmp(g_current.lexeme, ">")  ||
-            !strcmp(g_current.lexeme, "<=") || !strcmp(g_current.lexeme, ">=")))
-    {
-        printf("[DEBUG] parse_comparison -> saw '%s'\n", g_current.lexeme);
-        Token op = g_current;
-        advance();
-        ASTNode* right = parse_term();
-        ASTNode* binNode = create_node(AST_BINOP, &op);
-        binNode->left  = left;
-        binNode->right = right;
-        left = binNode;
-    }
-    return left;
-}
-
-static ASTNode* parse_equality() {
-    printf("[DEBUG] parse_equality -> start, current='%s'\n", g_current.lexeme);
-    ASTNode* left = parse_comparison();
-    while (g_current.type == TOKEN_OPERATOR &&
-           (!strcmp(g_current.lexeme, "==") || !strcmp(g_current.lexeme, "!=")))
-    {
-        printf("[DEBUG] parse_equality -> saw '%s'\n", g_current.lexeme);
-        Token op = g_current;
-        advance();
-        ASTNode* right = parse_comparison();
-        ASTNode* binNode = create_node(AST_BINOP, &op);
-        binNode->left  = left;
-        binNode->right = right;
-        left = binNode;
-    }
-    return left;
-}
-
-static ASTNode* parse_expression() {
-    printf("[DEBUG] parse_expression -> start, current='%s'\n", g_current.lexeme);
-    ASTNode* node = parse_equality();
-    printf("[DEBUG] parse_expression -> end\n");
-    return node;
 }
 
 /*
@@ -342,9 +320,9 @@ static ASTNode* parse_expression() {
 
 // parse_block: "{" { ... } "}"
 static ASTNode* parse_block(void) {
-    printf("[DEBUG] parse_block -> start, current='%s'\n", g_current.lexeme);
+    PARSE_INFO("parse_block -> start, current='%s'\n", g_current.lexeme);
     if (!isDelimiter(g_current, "{")) {
-        parse_error("Expected '{' at start of block");
+        PARSE_ERROR("Expected '{' at start of block");
     }
     Token braceTok = g_current;
     advance(); // consume "{"
@@ -354,7 +332,7 @@ static ASTNode* parse_block(void) {
     ASTNode* tail = NULL;
 
     while (!isDelimiter(g_current, "}") && g_current.type != TOKEN_EOF) {
-        printf("[DEBUG] parse_block -> reading stmt, current='%s'\n", g_current.lexeme);
+        PARSE_INFO("parse_block -> reading stmt, current='%s'\n", g_current.lexeme);
         ASTNode* stmt = NULL;
 
         if (isKeyword(g_current, "int")) {
@@ -373,29 +351,29 @@ static ASTNode* parse_block(void) {
     }
 
     if (!isDelimiter(g_current, "}")) {
-        parse_error("Expected '}' at end of block");
+        PARSE_ERROR("Expected '}' at end of block");
     }
     advance(); // consume "}"
 
     blockNode->body = head;
-    printf("[DEBUG] parse_block -> end\n");
+    PARSE_INFO("parse_block -> end\n");
     return blockNode;
 }
 
 static ASTNode* parse_if_statement(void) {
-    printf("[DEBUG] parse_if_statement -> start, current='%s'\n", g_current.lexeme);
+    PARSE_INFO("parse_if_statement -> start, current='%s'\n", g_current.lexeme);
     Token ifTok = g_current; 
     advance(); // consume "if"
 
     if (!isDelimiter(g_current, "(")) {
-        parse_error("Expected '(' after 'if'");
+        PARSE_ERROR("Expected '(' after 'if'");
     }
     advance(); // consume "("
 
-    ASTNode* cond = parse_expression();
+    ASTNode* cond = parse_expression(0);
 
     if (!isDelimiter(g_current, ")")) {
-        parse_error("Expected ')' after if condition");
+        PARSE_ERROR("Expected ')' after if condition");
     }
     advance(); // consume ")"
 
@@ -405,29 +383,29 @@ static ASTNode* parse_if_statement(void) {
     ifNode->right = thenBlock;
 
     if (isKeyword(g_current, "else")) {
-        printf("[DEBUG] parse_if_statement -> found 'else'\n");
+        PARSE_INFO("parse_if_statement -> found 'else'\n");
         advance(); // consume "else"
         ASTNode* elseBlock = parse_block();
         ifNode->body = elseBlock;
     }
-    printf("[DEBUG] parse_if_statement -> end\n");
+    PARSE_INFO("parse_if_statement -> end\n");
     return ifNode;
 }
 
 static ASTNode* parse_while_statement(void) {
-    printf("[DEBUG] parse_while_statement -> start\n");
+    PARSE_INFO("parse_while_statement -> start\n");
     Token whTok = g_current;
     advance(); // consume "while"
 
     if (!isDelimiter(g_current, "(")) {
-        parse_error("Expected '(' after 'while'");
+        PARSE_ERROR("Expected '(' after 'while'");
     }
     advance(); // consume "("
 
-    ASTNode* cond = parse_expression();
+    ASTNode* cond = parse_expression(0);
 
     if (!isDelimiter(g_current, ")")) {
-        parse_error("Expected ')' after while condition");
+        PARSE_ERROR("Expected ')' after while condition");
     }
     advance(); // consume ")"
 
@@ -435,60 +413,60 @@ static ASTNode* parse_while_statement(void) {
     ASTNode* bodyBlock = parse_block();
     whNode->left  = cond;
     whNode->right = bodyBlock;
-    printf("[DEBUG] parse_while_statement -> end\n");
+    PARSE_INFO("parse_while_statement -> end\n");
     return whNode;
 }
 
 static ASTNode* parse_repeat_until(void) {
-    printf("[DEBUG] parse_repeat_until -> start\n");
+    PARSE_INFO("parse_repeat_until -> start\n");
     Token rptTok = g_current;
     advance(); // consume "repeat"
 
     ASTNode* blockNode = parse_block();
 
     if (!isKeyword(g_current, "until")) {
-        parse_error("Expected 'until' after repeat block");
+        PARSE_ERROR("Expected 'until' after repeat block");
     }
     advance(); // consume "until"
 
     if (!isDelimiter(g_current, "(")) {
-        parse_error("Expected '(' after 'until'");
+        PARSE_ERROR("Expected '(' after 'until'");
     }
     advance(); // consume "("
 
-    ASTNode* cond = parse_expression();
+    ASTNode* cond = parse_expression(0);
 
     if (!isDelimiter(g_current, ")")) {
-        parse_error("Expected ')' after repeat-until condition");
+        PARSE_ERROR("Expected ')' after repeat-until condition");
     }
     advance(); // consume ")"
 
     ASTNode* rptNode = create_node(AST_REPEAT, &rptTok);
     rptNode->left  = blockNode;
     rptNode->right = cond;
-    printf("[DEBUG] parse_repeat_until -> end\n");
+    PARSE_INFO("parse_repeat_until -> end\n");
     return rptNode;
 }
 
 static ASTNode* parse_print_statement(void) {
-    printf("[DEBUG] parse_print_statement -> start\n");
+    PARSE_INFO("parse_print_statement -> start\n");
     Token prTok = g_current;
     advance(); // consume "print"
 
     ASTNode* prNode = create_node(AST_PRINT, &prTok);
-    ASTNode* expr = parse_expression();
+    ASTNode* expr = parse_expression(0);
     prNode->right = expr;
 
     if (!isDelimiter(g_current, ";")) {
-        parse_error("Expected ';' after print statement");
+        PARSE_ERROR("Expected ';' after print statement");
     }
     advance(); // consume ";"
-    printf("[DEBUG] parse_print_statement -> end\n");
+    PARSE_INFO("parse_print_statement -> end\n");
     return prNode;
 }
 
 static ASTNode* parse_statement(void) {
-    printf("[DEBUG] parse_statement -> start, current='%s'\n", g_current.lexeme);
+    PARSE_INFO("parse_statement -> start, current='%s'\n", g_current.lexeme);
 
     if (isKeyword(g_current, "if"))      return parse_if_statement();
     if (isKeyword(g_current, "while"))   return parse_while_statement();
@@ -503,9 +481,9 @@ static ASTNode* parse_statement(void) {
             return parse_assignment();
         } else {
             // expression statement
-            ASTNode* expr = parse_expression();
+            ASTNode* expr = parse_expression(0);
             if (!isDelimiter(g_current, ";")) {
-                parse_error("Expected ';' after expression statement");
+                PARSE_ERROR("Expected ';' after expression statement");
             }
             advance(); // consume ";"
             return expr;
@@ -513,73 +491,86 @@ static ASTNode* parse_statement(void) {
     }
 
     // fallback: expression statement
-    ASTNode* expr = parse_expression();
+    ASTNode* expr = parse_expression(0);
     if (!isDelimiter(g_current, ";")) {
-        parse_error("Expected ';' after expression statement");
+        PARSE_ERROR("Expected ';' after expression statement");
     }
     advance(); // consume ";"
-    printf("[DEBUG] parse_statement -> end (expression stmt)\n");
+    PARSE_INFO("parse_statement -> end (expression stmt)\n");
     return expr;
 }
 
-static void expectKeyword(const char* kw) {
-    printf("[DEBUG] expectKeyword -> looking for '%s', current='%s'\n", kw, g_current.lexeme);
-    if (!(g_current.type == TOKEN_KEYWORD && strcmp(g_current.lexeme, kw) == 0)) {
-        char msg[128];
-        snprintf(msg, sizeof(msg), "Expected keyword '%s', got '%s'", kw, g_current.lexeme);
-        parse_error(msg);
-    }
-    advance();
+
+// parse args for function main(int argc, char* argv[])
+static ASTNode* parse_function() {
+    PARSE_INFO("parse_function -> start\n");
+    return NULL;
 }
 
-// parse_declaration: "int x [= expr];"
-static ASTNode* parse_declaration(void) {
-    printf("[DEBUG] parse_declaration -> start\n");
-    expectKeyword("int");
+// parse_declaration: "int x"
+static ASTNode* parse_declaration() {
+    PARSE_INFO("parse_declaration -> start\n");
+    for (int i = 0; i < sizeof(TYPES)/sizeof(char*); i++) {
+        if ((g_current.type == TOKEN_KEYWORD && strcmp(g_current.lexeme, TYPES[i]) == 0)) {
+            break;
+        }
+        // Could not find valid type
+        if (i == sizeof(TYPES)/sizeof(char*) - 1) {
+            PARSE_ERROR("Expected a type, found something else");
+        }
+    }
+    advance();
 
     if (g_current.type != TOKEN_IDENTIFIER) {
-        parse_error("Expected identifier after 'int'");
+        PARSE_ERROR("Expected identifier after type");
     }
     Token idToken = g_current;
     advance(); // consume identifier
 
     ASTNode* declNode = create_node(AST_VARDECL, &idToken);
 
-    if (isOperator(g_current, "=")) {
-        printf("[DEBUG] parse_declaration -> found '='\n");
+    // Parse assignment to an identifier after a declaration
+    if (str_is_in(g_current.lexeme, ASSIGNMENTS, sizeof(ASSIGNMENTS)/sizeof(char*))) {
+        PARSE_INFO("parse_declaration assignment -> found '%s'\n", g_current.lexeme);
         advance();
-        ASTNode* initExpr = parse_expression();
+        ASTNode* initExpr = parse_expression(0);
         declNode->right = initExpr;
+    } else if (isDelimiter(g_current, "(")) { // Function declaration, parse the 
+        PARSE_INFO("parse_decl function %s\n", g_current.lexeme);
+        advance();
+        ASTNode* func_args = parse_function();
+        PARSE_ERROR("TEST ERROR %s", "hah");
+        declNode->right = func_args;
     }
 
     if (!isDelimiter(g_current, ";")) {
-        parse_error("Expected ';' after variable declaration");
+        PARSE_ERROR("Expected ';' after variable declaration");
     }
     advance(); // consume ';'
-    printf("[DEBUG] parse_declaration -> end\n");
+    PARSE_INFO("parse_declaration -> end\n");
     return declNode;
 }
 
 // parse_assignment: "x = expr;"
 static ASTNode* parse_assignment(void) {
-    printf("[DEBUG] parse_assignment -> start\n");
+    PARSE_INFO("parse_assignment -> start\n");
     Token ident = g_current;
     advance(); // consume identifier
 
     if (!isOperator(g_current, "=")) {
-        parse_error("Expected '=' in assignment");
+        PARSE_ERROR("Expected '=' in assignment");
     }
     advance(); // consume "="
 
     ASTNode* assignNode = create_node(AST_ASSIGN, &ident);
-    ASTNode* rhs = parse_expression();
+    ASTNode* rhs = parse_expression(0);
     assignNode->right = rhs;
 
     if (!isDelimiter(g_current, ";")) {
-        parse_error("Expected ';' after assignment");
+        PARSE_ERROR("Expected ';' after assignment");
     }
     advance(); // consume ";"
-    printf("[DEBUG] parse_assignment -> end\n");
+    PARSE_INFO("parse_assignment -> end\n");
     return assignNode;
 }
 
@@ -587,7 +578,7 @@ static ASTNode* parse_assignment(void) {
   6) parse_program
 */
 static ASTNode* parse_program(void) {
-    printf("[DEBUG] parse_program -> start\n");
+    PARSE_INFO("parse_program -> start\n");
     Token dummy;
     memset(&dummy, 0, sizeof(Token));
     ASTNode* programNode = create_node(AST_PROGRAM, &dummy);
@@ -596,10 +587,12 @@ static ASTNode* parse_program(void) {
     ASTNode* tail = NULL;
 
     while (g_current.type != TOKEN_EOF) {
-        printf("[DEBUG] parse_program -> reading top-level, current='%s'\n", g_current.lexeme);
+        PARSE_INFO("parse_program -> reading top-level, current='%s'\n", g_current.lexeme);
         ASTNode* node = NULL;
-        if (isKeyword(g_current, "int")) {
+        if (str_is_in(g_current.lexeme, TYPES, sizeof(TYPES)/sizeof(char*))) {
             node = parse_declaration();
+        } else if (str_is_in(g_current.lexeme, KEYWORDS, sizeof(KEYWORDS)/sizeof(char*))){
+            node = parse_statement();
         } else {
             node = parse_statement();
         }
@@ -611,7 +604,7 @@ static ASTNode* parse_program(void) {
         }
     }
     programNode->body = head;
-    printf("[DEBUG] parse_program -> end\n");
+    PARSE_INFO("parse_program -> end\n");
     return programNode;
 }
 
@@ -619,17 +612,17 @@ static ASTNode* parse_program(void) {
   parse_table (entry point)
 */
 void parse_table(Token* table) {
-    printf("[DEBUG] parse_table -> start\n");
+    PARSE_INFO("parse_table -> start\n");
     g_tokens   = table;
     g_position = 0;
     advance(); 
 
     ASTNode* root = parse_program();
-    printf("\n--- PARSED AST ---\n");
+    PARSE_INFO("\n--- PARSED AST ---\n");
     print_ast(root);
 
     // Freed memory omitted for brevity
-    printf("[DEBUG] parse_table -> end\n");
+    PARSE_INFO("parse_table -> end\n");
 }
 
 /*
@@ -637,24 +630,31 @@ test operator precedence
 */
 int main(void) {
     const char* testInputs[] = {
-        "int x = 5 + 2 * 3;",
+        "uint x = 5 + 2 * 3;",
         "int y = (2 + 3) * 4 - 1;",
         "int z = (10 - (3 + 2)) * 2;",
         "x = 10 - 3 - 2;",
         "x = 24 / 2 * 3;",
         "if (5 + 3 * 2 > 10) { print 1; }",
         "x = ((2 + 3) * (4 - 1)) / 5;",
-        "print (1 + 2 * 3 - 4 / 2);"
+        "print (1 + 2 * 3 - 4 / 2);",
+        "x = (1 == x) * 4 && 1 + 45 / 5 % 6 + 1 * 2;",
+        "while (0 == 1) { x += 1 };",
+        "int main(){ uint x = 0 };",
     };
     size_t NUM_TESTS = sizeof(testInputs) / sizeof(testInputs[0]);
 
-    for (size_t i = 0; i < NUM_TESTS; i++) {
-        printf("\n=== Test #%zu ===\nSource: %s\n", i+1, testInputs[i]);
+    /*for (size_t i = 0; i < NUM_TESTS; i++) {
+        PARSE_INFO("\n=== Test #%zu ===\nSource: %s\n", i+1, testInputs[i]);
 
         Token* tokens = make_table((char*)testInputs[i]);
         parse_table(tokens);
         free(tokens);
-    }
+    }*/
+    Token* tokens = make_table((char*)testInputs[10]);
+    print_token_stream(testInputs[8]);
+    parse_table(tokens);
+    free(tokens);
 
     return 0;
 }
