@@ -7,6 +7,8 @@
 typedef enum {
     AST_PROGRAM,
     AST_BLOCK,
+    AST_VARDECLTYPE,
+    AST_VARDECLFUNC,
     AST_VARDECL,
     AST_ASSIGN,
     AST_IF,
