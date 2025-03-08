@@ -3,7 +3,7 @@
 
 #include "tokens.h"
 
-/*AST Node Types-*/
+/*AST Node Types*/
 typedef enum {
     AST_PROGRAM,
     AST_BLOCK,
@@ -18,33 +18,27 @@ typedef enum {
     AST_BINOP,
     AST_UNARYOP,
     AST_LITERAL,
-    AST_IDENTIFIER
+    AST_IDENTIFIER,
+    AST_FACTORIAL // ADDED
 } ASTType;
 
 /*AST Node Structure*/
 typedef struct ASTNode {
-    ASTType           type;    // e.g. AST_IF, AST_WHILE, etc.
-    Token             current; // The token associated with this node
-    struct ASTNode   *left;    // Commonly used for subexpressions or conditions
-    struct ASTNode   *right;   // Commonly used for subexpressions or "then" block
-    struct ASTNode   *next;    // For linking statements in a block
-    struct ASTNode   *body;    // For the statements inside a block, or function-call arguments
+    ASTType           type;
+    Token             current;
+    struct ASTNode   *left;
+    struct ASTNode   *right;
+    struct ASTNode   *next;
+    struct ASTNode   *body;
 } ASTNode;
 
-/*
-Function Prototypes
-*/
-
-// Create a node with the given AST type and (optional) associated token
+/*Prototypes*/
 ASTNode* create_node(ASTType type, const Token* tk);
-
-// Build a token array from raw input
 Token* make_table(char* input);
-
-// Parse the array of tokens into an AST
 void parse_table(Token* table);
-
-// Print (for debugging) the AST
 void print_ast(ASTNode* root);
+
+/*Optional helper*/
+ASTNode* create_node_simple(ASTType type);
 
 #endif

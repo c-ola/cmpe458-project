@@ -77,6 +77,7 @@ static char delimiters[] = {
     '(',
     ',', // special cuz no closing bracket
     ';',
+    '.'
 };
 
 int is_keyword(char* str, int len);

@@ -1,6 +1,5 @@
 Keywords:
 - "int"
-- "uint"
 - "float"
 - "string"
 - "char"
