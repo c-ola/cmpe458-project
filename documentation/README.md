@@ -8,13 +8,7 @@ make
 
 ## Running
 
-To run the default test case run
+Run the parser with
 ```
-./my-mini-compiler
-```
-
-To run the test cases seperately
-```
-./my-mini-compiler ../phase1-w25/test/input_valid.txt
-./my-mini-compiler ../phase1-w25/test/input_invalid.txt
+./parser
 ```
