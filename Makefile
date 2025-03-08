@@ -8,7 +8,7 @@ SRCS = src/parser.c src/lexer.c
 OBJS = $(SRCS:.c=.o)
 
 # The final binary we produce
-TARGET = compiler
+TARGET = build/compiler
 
 all: $(TARGET)
 
