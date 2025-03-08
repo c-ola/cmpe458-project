@@ -182,12 +182,9 @@ Token* make_table(char* in){
         current = get_next_token(in, &position, last);
         if (current.error != ERROR_NONE) {
             print_error(current.error, current.line, current.lexeme);
-            free(table);
-            if (table == NULL) {
-                fprintf(stderr, "Failed to create token table\n");
-                exit(0);
-            }
-            return NULL;
+            //free(table);
+            //fprintf(stderr, "Failed to create token table\n");
+            //return NULL;
         }
         last = current.type;
         table[lexemmes++] = current;
@@ -723,7 +720,9 @@ int main(int argc, char* argv[]) {
         for (size_t i = 0; i < NUM_TESTS; i++) {
             PARSE_INFO("\n=== Test #%zu ===\nSource: %s\n", i+1, testInputs[i]);
             Parser parser = new_parser((char*)testInputs[i]);
+#ifdef DEBUG
             print_token_stream(testInputs[i]);
+#endif
             parse(&parser);
             free_parser(parser);
         }

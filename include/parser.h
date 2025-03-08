@@ -95,19 +95,8 @@ ASTNode* parse_primary(Parser* parser);
 ASTNode* parse_function_args(Parser* parser);
 ASTNode* parse_factorial(Parser* parser);
 
-#define DEFINE_ERROR_ENUM(name, ...)                 \
-    typedef enum { __VA_ARGS__ } name;               \
-    const char* name##_to_string(name e) {           \
-        switch (e) {                                 \
-            __VA_ARGS__                              \
-        }                                           \
-        return "Unknown";                            \
-    }
-
-// Helper macro to generate case labels
-#define ENUM_CASE(e) case e: return #e;
-
 // Define the enum and its string conversion function
+// might be good to add a custom
 #define ERRORS \
     X(EXPECTED)\
     X(UNEXPECTED)\
@@ -140,7 +129,7 @@ const char* error_to_string(ParserErrorType e) {
     fprintf(stderr, "\n[PARSER ERROR] Error near token '%s' on line %d; \n\t Error: %s\n", parser->current.lexeme, parser->current.line, error_to_string(error_type), ##__VA_ARGS__);\
 
 
-#define DEBUG
+//#define DEBUG
 #ifdef DEBUG
 #define PARSE_INFO(message, ...) fprintf(stdout, "[PARSER DEBUG] " message , ##__VA_ARGS__);
 #else

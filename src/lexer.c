@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include "tokens.h"
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
@@ -108,7 +109,7 @@ void print_token(Token token) {
 void skip_whitespace(const char* input, int *pos, int *current_line) {
     char c;
     int found_comment = 0;
-    while ((c = input[*pos]) != '\0' && (c == ' ' || c == '\n' || c == '\t')) {
+    while ((c = input[*pos]) != '\0' && (c == ' ' || c == '\n' || c == '\t' || c == '/') ) {
         if (c == '\n') {
             (*current_line)++;
             (*pos)++;
@@ -124,9 +125,8 @@ void skip_whitespace(const char* input, int *pos, int *current_line) {
             };
             continue;
         }
-
         // Skip block comments: "/*...*/"
-        if (input[*pos] == '/' && input[*pos + 1] == '*') {
+        else if (input[*pos] == '/' && input[*pos + 1] == '*') {
             (*pos) += 2;
             while (input[*pos] != '\0' &&
                    !(input[*pos] == '*' && input[*pos + 1] == '/'))
@@ -140,6 +140,8 @@ void skip_whitespace(const char* input, int *pos, int *current_line) {
             if (input[*pos] == '*') (*pos)++;
             if (input[*pos] == '/') (*pos)++;
             continue;
+        } else if (input[*pos] == '/'){
+            break;
         }
         (*pos)++;
     }
@@ -235,12 +237,20 @@ Token get_next_token(const char *input, int *pos, TokenType last_token_type) {
     // If c is a digit => parse number
     if (isdigit(c)) {
         int i = 0;
-        while (isdigit(c) && i < (int)sizeof(token.lexeme) - 1) {
+        int found_decimals = 0;
+        while ((isdigit(c) || c == '.') && i < (int)sizeof(token.lexeme) - 1) {
+            if (c == '.') {
+                found_decimals++;
+            }
             token.lexeme[i++] = c;
             (*pos)++;
             c = input[*pos];
         }
         token.lexeme[i] = '\0';
+        if (found_decimals > 1) {
+            token.error = ERROR_INVALID_NUMBER;
+            fprintf(stderr, "Invalid float literal with multiple decimals %s\n", token.lexeme);
+        }
         token.type = TOKEN_NUMBER;
         return token;
     }
