@@ -105,59 +105,54 @@ void print_token(Token token) {
             token.lexeme, token.line);
 }
 
+void skip_whitespace(const char* input, int *pos, int *current_line) {
+    char c;
+    int found_comment = 0;
+    while ((c = input[*pos]) != '\0' && (c == ' ' || c == '\n' || c == '\t' || c == '/')) {
+        if (c == '\n') {
+            (*current_line)++;
+            (*pos)++;
+            continue;
+        }
+
+        // Skip line comments: "//"
+        if ((input[*pos] == '/' && input[*pos + 1] == '/')) {
+            found_comment = 1;
+            (*pos) += 2;
+            while (input[*pos] != '\0' && input[*pos] != '\n') {
+                (*pos)++;
+            };
+            continue;
+        }
+
+        // Skip block comments: "/*...*/"
+        if (input[*pos] == '/' && input[*pos + 1] == '*') {
+            (*pos) += 2;
+            while (input[*pos] != '\0' &&
+                   !(input[*pos] == '*' && input[*pos + 1] == '/'))
+            {
+                if (input[*pos] == '\n') {
+                    (*current_line)++;
+                }
+                (*pos)++;
+            }
+            // skip the '*/'
+            if (input[*pos] == '*') (*pos)++;
+            if (input[*pos] == '/') (*pos)++;
+            continue;
+        }
+        (*pos)++;
+    }
+}
+
 Token get_next_token(const char *input, int *pos, TokenType last_token_type) {
     Token token = {TOKEN_ERROR, "", current_line, ERROR_NONE};
     char c;
 
     // Skip whitespace + track line numbers
-    while ((c = input[*pos]) != '\0' &&
-           (c == ' ' || c == '\n' || c == '\t'))
-    {
-        if (c == '\n') current_line++;
-        (*pos)++;
-    }
+    skip_whitespace(input, pos, &current_line);
     c = input[*pos];
-
     // If end of input => TOKEN_EOF
-    if (c == '\0') {
-        token.type = TOKEN_EOF;
-        strcpy(token.lexeme, "EOF");
-        return token;
-    }
-
-    // Skip line comments: "//"
-    while (input[*pos] == '/' && input[*pos + 1] == '/') {
-        // skip until newline
-        (*pos) += 2;
-        while (input[*pos] != '\0' && input[*pos] != '\n') {
-            (*pos)++;
-        }
-        // track line if we see '\n'
-        if (input[*pos] == '\n') {
-            current_line++;
-            (*pos)++;
-        }
-        c = input[*pos];
-    }
-
-    // Skip block comments: "/*...*/"
-    if (input[*pos] == '/' && input[*pos + 1] == '*') {
-        (*pos) += 2;
-        while (input[*pos] != '\0' &&
-               !(input[*pos] == '*' && input[*pos + 1] == '/'))
-        {
-            if (input[*pos] == '\n') {
-                current_line++;
-            }
-            (*pos)++;
-        }
-        // skip the '*/'
-        if (input[*pos] == '*') (*pos)++;
-        if (input[*pos] == '/') (*pos)++;
-        c = input[*pos];
-    }
-
-    // re-check if we reached end after skipping comments
     if (c == '\0') {
         token.type = TOKEN_EOF;
         strcpy(token.lexeme, "EOF");
@@ -250,10 +245,10 @@ Token get_next_token(const char *input, int *pos, TokenType last_token_type) {
         return token;
     }
 
-    // If c is a letter or underscore => parse identifier/keyword
+    // If c is a letter or underscore => begin parsing identifier/keyword
     if (isalpha(c) || c == '_') {
         int i = 0;
-        while ((isalpha(c) || c == '_') && i < (int)sizeof(token.lexeme) - 1) {
+        while ((isdigit(c) || isalpha(c) || c == '_') && i < (int)sizeof(token.lexeme) - 1) {
             token.lexeme[i++] = c;
             (*pos)++;
             c = input[*pos];
@@ -286,19 +281,6 @@ Token get_next_token(const char *input, int *pos, TokenType last_token_type) {
         }
         return token;
     }
-
-    //  handle single-char or multi-char operators like +, -, *, /, ==, !=, etc.
-    /*if (is_operator(&c)) {
-        token.lexeme[0] = c;
-        token.lexeme[1] = '\0';
-        token.type = TOKEN_OPERATOR;
-        (*pos)++;
-        // check consecutive operators
-        if (last_token_type == TOKEN_OPERATOR) {
-            token.error = ERROR_CONSECUTIVE_OPERATORS;
-        }
-        return token;
-    }*/
 
     //  reach here => unknown or invalid character
     token.error = ERROR_INVALID_CHAR;

@@ -1,4 +1,12 @@
+// Test comment
+// Test comment
+/* here 
+
+*/
 int main(string args) {
+/*
+ comment
+*/
     int k = 0;
     repeat {
         uint x = 10;
