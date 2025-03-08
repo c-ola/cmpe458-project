@@ -1,4 +1,4 @@
-// this is a comment
+// this is a comment\n
 /* this is also
 * a comment
 */
