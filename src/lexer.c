@@ -1,8 +1,17 @@
 #include "lexer.h"
-//lexer part
+#include <stdio.h>
+#include <ctype.h>
+#include <string.h>
+#include <stdlib.h>
+
+// For tracking line numbers during lexing
+static int current_line = 1;
+
+
+// checks if [str, str+len) is in the keywords[] array
 int is_keyword(char* str, int len) {
-    for(int i = 0; i < NUM_KEYWORDS; i++) {
-        if (strncmp(str, keywords[i], len) == 0) {
+    for (int i = 0; i < NUM_KEYWORDS; i++) {
+        if (strncmp(str, keywords[i], len) == 0 && keywords[i][len] == '\0') {
             return 1;
         }
     }
@@ -10,16 +19,16 @@ int is_keyword(char* str, int len) {
 }
 
 int is_operator(char* str, int len) {
-    for(int i = 0; i < NUM_OPERATORS; i++) {
-        if (strncmp(str, operators[i], len) == 0) {
+    for (int i = 0; i < NUM_OPERATORS; i++) {
+        if (strncmp(str, operators[i], len) == 0 && operators[i][len] == '\0') {
             return 1;
         }
     }
     return 0;
 }
 
-int is_delimiter(char c){
-    for(int i = 0; i < NUM_DELIMITERS; i++) {
+int is_delimiter(char c) {
+    for (int i = 0; i < NUM_DELIMITERS; i++) {
         if (c == delimiters[i]) return 1;
     }
     return 0;
@@ -88,86 +97,115 @@ void print_token(Token token) {
             token.lexeme, token.line);
 }
 
-static int current_line = 1;
 Token get_next_token(const char *input, int *pos, TokenType last_token_type) {
     Token token = {TOKEN_ERROR, "", current_line, ERROR_NONE};
     char c;
 
-    // Skip whitespace and track line numbers
+    // Skip whitespace + track line numbers
     while ((c = input[*pos]) != '\0' &&
-           (c == ' ' ||
-            c == '\n' ||
-            c == '\t'))
+           (c == ' ' || c == '\n' || c == '\t'))
     {
         if (c == '\n') current_line++;
         (*pos)++;
     }
+    c = input[*pos];
 
-    if (input[*pos] == '\0') {
+    // If end of input => TOKEN_EOF
+    if (c == '\0') {
         token.type = TOKEN_EOF;
         strcpy(token.lexeme, "EOF");
         return token;
     }
 
-    // skip over line comments
-    while (input[*pos] == '/' && input[*pos+1] == '/') {
-        current_line++;
-        while (input[(*pos)++] != '\n');
+    // Skip line comments: "//"
+    while (input[*pos] == '/' && input[*pos + 1] == '/') {
+        // skip until newline
+        (*pos) += 2;
+        while (input[*pos] != '\0' && input[*pos] != '\n') {
+            (*pos)++;
+        }
+        // track line if we see '\n'
+        if (input[*pos] == '\n') {
+            current_line++;
+            (*pos)++;
+        }
+        c = input[*pos];
     }
 
-    // skip over block comments
-    if (input[*pos] == '/' && input[*pos+1] == '*') {
-        *pos += 2;
-        while(!(input[*pos] == '*' && input[*pos + 1] == '/')) {
-            *pos+=1;
-        };
+    // Skip block comments: "/*...*/"
+    if (input[*pos] == '/' && input[*pos + 1] == '*') {
+        (*pos) += 2;
+        while (input[*pos] != '\0' &&
+               !(input[*pos] == '*' && input[*pos + 1] == '/'))
+        {
+            if (input[*pos] == '\n') {
+                current_line++;
+            }
+            (*pos)++;
+        }
+        // skip the '*/'
+        if (input[*pos] == '*') (*pos)++;
+        if (input[*pos] == '/') (*pos)++;
+        c = input[*pos];
+    }
+
+    // re-check if we reached end after skipping comments
+    if (c == '\0') {
+        token.type = TOKEN_EOF;
+        strcpy(token.lexeme, "EOF");
+        return token;
+    }
+
+    // If c is a delimiter => return TOKEN_DELIMITER
+    if (is_delimiter(c)) {
+        token.lexeme[0] = c;
+        token.lexeme[1] = '\0';
+        token.type = TOKEN_DELIMITER;
         (*pos)++;
-        do { *pos+=1; } while (input[*pos] == '\n');
+        return token;
     }
-    c = input[*pos];
 
-    // Handle string literals
+    //  If c is a double-quote => parse string literal
     if (c == '"') {
         int i = 0;
-        (*pos)++;  // pass opening quote
+        (*pos)++; // skip opening quote
         c = input[*pos];
 
-        while (c != '"' && c != '\0' && i < sizeof(token.lexeme) - 1) {
-            if (c == '\n' || c == '\0') {
-                // unterminated string
+        while (c != '"' && c != '\0' && i < (int)sizeof(token.lexeme) - 1) {
+            if (c == '\n') {
+                // unterminated string => error
                 token.error = ERROR_INVALID_CHAR;
-                snprintf(token.lexeme, sizeof(token.lexeme), "Unterminated string");
-
-                // go to newline, skip processing
+                snprintf(token.lexeme, sizeof(token.lexeme), "Unterminated string at line %d", current_line);
+                // skip until next line
                 while (input[*pos] != '\0' && input[*pos] != '\n') {
                     (*pos)++;
                 }
-                (*pos)++; // Move to the next line
-
-                return token; 
+                if (input[*pos] == '\n') {
+                    current_line++;
+                    (*pos)++;
+                }
+                return token;
             }
-
-            // Handle escape sequences
+            // handle escape sequences
             if (c == '\\') {
                 (*pos)++;
                 c = input[*pos];
-
                 switch (c) {
-                    case 'n': token.lexeme[i++] = '\\'; token.lexeme[i++] = 'n'; break;
-                    case 't': token.lexeme[i++] = '\\'; token.lexeme[i++] = 't'; break;
+                    case 'n':  token.lexeme[i++] = '\\'; token.lexeme[i++] = 'n'; break;
+                    case 't':  token.lexeme[i++] = '\\'; token.lexeme[i++] = 't'; break;
                     case '\\': token.lexeme[i++] = '\\'; break;
-                    case '"': token.lexeme[i++] = '\"'; break;
+                    case '"':  token.lexeme[i++] = '\"'; break;
                     default:
-                        // invalid escape seq
                         token.error = ERROR_INVALID_CHAR;
-                        snprintf(token.lexeme, sizeof(token.lexeme), "Invalid escape: \\%c", c);
-
-                        // skip line
+                        snprintf(token.lexeme, sizeof(token.lexeme), "Invalid escape \\%c", c);
+                        // skip rest of line
                         while (input[*pos] != '\0' && input[*pos] != '\n') {
                             (*pos)++;
                         }
-                        (*pos)++; // skip line
-
+                        if (input[*pos] == '\n') {
+                            current_line++;
+                            (*pos)++;
+                        }
                         return token;
                 }
             } else {
@@ -177,93 +215,74 @@ Token get_next_token(const char *input, int *pos, TokenType last_token_type) {
             c = input[*pos];
         }
 
-        return token;
-    }
-
-    // Handle numbers
-    if (isdigit(c)) {
-        int i = 0;
-        do {
-            token.lexeme[i++] = c;
-            (*pos)++;
-            c = input[*pos];
-        } while (isdigit(c) && i < sizeof(token.lexeme) - 1);
-
-        token.lexeme[i] = '\0';
-        token.type = TOKEN_NUMBER;
-        return token;
-    }
-
-    // handle end of expression
-    if (c == ';') {
-        token.lexeme[0] = ';';
-        token.lexeme[1] = '\0';
-        token.type = TOKEN_DELIMITER;
-        (*pos)++;
-        return token;
-    }
-
-    // Add keyword and identifier handling here
-    if (!isdigit(c) || c == '_') {
-        int i = 0;
-        do {
-            token.lexeme[i++] = c;
-            (*pos)++;
-            c = input[*pos];
-        } while ((isalpha(c) || c == '_') && i < sizeof(token.lexeme) - 1);
-
-        token.lexeme[i] = '\0';
-        if (is_keyword(token.lexeme, i)) {
-            token.type = TOKEN_KEYWORD;
-        } 
-        else if (is_operator(token.lexeme, i)) {
-            token.type = TOKEN_OPERATOR;
-            if (last_token_type == TOKEN_OPERATOR) {
-                // Check for consecutive operators
-                token.error = ERROR_CONSECUTIVE_OPERATORS;
-                token.lexeme[0] = c;
-                token.lexeme[1] = '\0';
-                (*pos)++;
-                return token;
-            }
-        } 
-        else token.type = TOKEN_IDENTIFIER;
-        return token;
-    }
-
-    // string literal handling
-    if (input[*pos] == '"' || input[*pos] == '\'') {
-        char toMatch = input[*pos];
-        int i = 0;
-        do {
-            token.lexeme[i++] = c;
-            
-            // checking that the string will actually include a closing bracket
-            if (i < (sizeof(token.lexeme) - 2)){ 
-                token.lexeme[i++] = c;
-                break;
-            }
-
-            (*pos)++;
-            c = input[*pos];
-
-        } while (c != toMatch);
+        // check if we ended properly
+        if (c == '\0') {
+            token.error = ERROR_INVALID_CHAR;
+            snprintf(token.lexeme, sizeof(token.lexeme),
+                     "Unterminated string at line %d", current_line);
+            return token;
+        }
+        // else c == '"', so close the string
+        (*pos)++; // skip closing quote
         token.lexeme[i] = '\0';
         token.type = TOKEN_STRING;
         return token;
     }
 
-    // TODO: Add delimiter handling here
-    if (is_delimiter(c)){
-        token.lexeme[0] = c;
-        token.lexeme[1] = '\0';
-        token.type = TOKEN_DELIMITER;
-        (*pos)++;
+    // If c is a digit => parse number
+    if (isdigit(c)) {
+        int i = 0;
+        while (isdigit(c) && i < (int)sizeof(token.lexeme) - 1) {
+            token.lexeme[i++] = c;
+            (*pos)++;
+            c = input[*pos];
+        }
+        token.lexeme[i] = '\0';
+        token.type = TOKEN_NUMBER;
         return token;
     }
 
+    // If c is a letter or underscore => parse identifier/keyword/operator
+    if (isalpha(c) || c == '_') {
+        int i = 0;
+        while ((isalpha(c) || c == '_') && i < (int)sizeof(token.lexeme) - 1) {
+            token.lexeme[i++] = c;
+            (*pos)++;
+            c = input[*pos];
+        }
+        token.lexeme[i] = '\0';
 
-    // Handle invalid characters
+        // check if it's keyword
+        if (is_keyword(token.lexeme, i)) {
+            token.type = TOKEN_KEYWORD;
+        }
+        else if (is_operator(token.lexeme, i)) {
+            token.type = TOKEN_OPERATOR;
+            // check consecutive operators
+            if (last_token_type == TOKEN_OPERATOR) {
+                token.error = ERROR_CONSECUTIVE_OPERATORS;
+            }
+        }
+        else {
+            token.type = TOKEN_IDENTIFIER;
+        }
+        return token;
+    }
+
+    //  handle single-char or multi-char operators like +, -, *, /, ==, !=, etc.
+    if (is_operator(&c, 1)) {
+        token.lexeme[0] = c;
+        token.lexeme[1] = '\0';
+        token.type = TOKEN_OPERATOR;
+        (*pos)++;
+        // check consecutive operators
+        if (last_token_type == TOKEN_OPERATOR) {
+            token.error = ERROR_CONSECUTIVE_OPERATORS;
+        }
+        return token;
+    }
+
+    //  reach here => unknown or invalid character
     token.error = ERROR_INVALID_CHAR;
     token.lexeme[0] = c;
     token.lexeme[1] = '\0';

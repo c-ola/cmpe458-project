@@ -28,6 +28,7 @@ static char* keywords[] = {
     "while",
     "loop",
     "break",
+    "print",
     "return",
     "fn",
 };

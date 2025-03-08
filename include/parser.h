@@ -3,52 +3,47 @@
 
 #include "tokens.h"
 
-#define DEPTH 5
-#define STATES 6
-
-// tells the state array what to do
+/*AST Node Types-*/
 typedef enum {
-    EMPTY,
-    SHIFT,
-    REDUCE,
-    ACCEPT,
-} Action;
-
-typedef enum {
-    R_S,
-    R_A,
-    R_B,
-    R_C,
-    R_D,
-} RULE;
-
-typedef enum {
-    AST_PROGRAM,        // Program node
-    AST_VARDECL,        // Variable declaration (int x)
-    AST_ASSIGN,         // Assignment (x = 5)
-    AST_PRINT,          // Print statement
-    AST_LITERAL,        // Literal
-    AST_IDENTIFIER,     // Variable name
-    // TODO: Add more node types as needed
+    AST_PROGRAM,
+    AST_BLOCK,
+    AST_VARDECL,
+    AST_ASSIGN,
+    AST_IF,
+    AST_WHILE,
+    AST_REPEAT,
+    AST_PRINT,
+    AST_FUNCTION_CALL,
+    AST_BINOP,
+    AST_UNARYOP,
+    AST_LITERAL,
+    AST_IDENTIFIER
 } ASTType;
 
-typedef enum {
-    PARSE_ERROR_NONE,
-    PARSE_ERROR_UNEXPECTED_TOKEN,
-    PARSE_ERROR_MISSING_SEMICOLON,
-    PARSE_ERROR_MISSING_IDENTIFIER,
-    PARSE_ERROR_MISSING_EQUALS,
-    PARSE_ERROR_INVALID_EXPRESSION
-} ParseError;
+/*AST Node Structure*/
+typedef struct ASTNode {
+    ASTType           type;    // e.g. AST_IF, AST_WHILE, etc.
+    Token             current; // The token associated with this node
+    struct ASTNode   *left;    // Commonly used for subexpressions or conditions
+    struct ASTNode   *right;   // Commonly used for subexpressions or "then" block
+    struct ASTNode   *next;    // For linking statements in a block
+    struct ASTNode   *body;    // For the statements inside a block, or function-call arguments
+} ASTNode;
 
-// astnode
-typedef struct _ASTN {
-    ASTType type;
-    Token current;
-    struct _ASTN* left;
-    struct _ASTN* right;
-} ASTN;
+/*
+Function Prototypes
+*/
 
-static ASTN* create_node(ASTType type, Token* t);
+// Create a node with the given AST type and (optional) associated token
+ASTNode* create_node(ASTType type, const Token* tk);
+
+// Build a token array from raw input
+Token* make_table(char* input);
+
+// Parse the array of tokens into an AST
+void parse_table(Token* table);
+
+// Print (for debugging) the AST
+void print_ast(ASTNode* root);
 
 #endif
