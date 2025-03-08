@@ -84,7 +84,6 @@ static Token* g_tokens  = NULL;
 static int    g_position= 0;
 static Token  g_current;
 
-
 #define PARSE_ERROR(message, ...)\
     fprintf(stderr, "\n[PARSER ERROR] Parse Error near token '%s' on line %d; \n\t Error: " message "\n", g_current.lexeme, g_current.line, ##__VA_ARGS__);\
     exit(0);\
@@ -217,6 +216,15 @@ Token* make_table(char* in) {
 
     do {
         current = get_next_token(in, &position, last);
+        if (current.error != ERROR_NONE) {
+            print_error(current.error, current.line, current.lexeme);
+            free(table);
+            if (table == NULL) {
+                fprintf(stderr, "Failed to create token table\n");
+                exit(0);
+            }
+            return NULL;
+        }
         last = current.type;
         table[lexemmes++] = current;
     } while (current.type != TOKEN_EOF);
@@ -276,7 +284,7 @@ static ASTNode* parse_primary() {
                 else          argTail->next = arg;
                 argTail = arg;
 
-                if (isOperator(g_current, ",")) {
+                if (isDelimiter(g_current, ",")) {
                     advance(); // consume comma
                 } else {
                     break;
@@ -516,7 +524,7 @@ static ASTNode* parse_statement(void) {
 
 // parse args for function main(int argc, char* argv[])
 static ASTNode* parse_function_args() {
-    PARSE_INFO("parse_function -> start\n");
+    PARSE_INFO("parse_function_args -> start\n");
     ASTNode* func_args = NULL;
     if (isDelimiter(g_current, ")")) {
         advance();
@@ -544,6 +552,7 @@ static ASTNode* parse_function_args() {
         if (!isDelimiter(g_current, ",")) {
             break;
         }
+        advance();
     }
     if (!isDelimiter(g_current, ")")) {
         PARSE_ERROR("Expected delimiter ')', found %s", g_current.lexeme);
@@ -681,36 +690,57 @@ void parse_table(Token* table) {
     PARSE_INFO("parse_table -> end\n");
 }
 
-/*
-test operator precedence
-*/
-int main(void) {
-    const char* testInputs[] = {
-        "uint x = 5 + 2 * 3;",
-        "int y = (2 + 3) * 4 - 1;",
-        "int z = (10 - (3 + 2)) * 2;",
-        "x = 10 - 3 - 2;",
-        "x = 24 / 2 * 3;",
-        "if (5 + 3 * 2 > 10) { print 1; }",
-        "x = ((2 + 3) * (4 - 1)) / 5;",
-        "print (1 + 2 * 3 - 4 / 2);",
-        "x = (1 == x) * 4 && 1 + 45 / 5 % 6 + 1 * 2;",
-        "while (0 == 1) { x += 1 };",
-        "int main(int argc){ uint x = 0; float y = 5 };\nint foo(){ string y = 0; float z = 35 } ",
-    };
-    size_t NUM_TESTS = sizeof(testInputs) / sizeof(testInputs[0]);
-
-    for (size_t i = 0; i < NUM_TESTS; i++) {
-        PARSE_INFO("\n=== Test #%zu ===\nSource: %s\n", i+1, testInputs[i]);
-
-        Token* tokens = make_table((char*)testInputs[i]);
+#define MAXBUFLEN 1000000
+int main(int argc, char* argv[]) {
+    char* input = malloc(MAXBUFLEN * sizeof(char));
+    if (argc == 2) {
+        const char* file = argv[1]; 
+        FILE *fp = fopen(file, "r");
+        if (fp != NULL) {
+            size_t new_len = fread(input, sizeof(char), MAXBUFLEN, fp);
+            if ( ferror( fp ) != 0 ) {
+                fputs("Error reading file", stderr);
+            } else {
+                input[new_len++] = '\0'; /* Just to be safe. */
+            }
+            fclose(fp);
+        }
+        int position = 0;
+        PARSE_INFO("Analyzing input:\n%s\n\n", input);
+        Token* tokens = make_table(input);
+        if (tokens == NULL) {
+            fprintf(stderr, "Failed to create token table\n");
+            exit(0);
+        }
         parse_table(tokens);
         free(tokens);
-    }
-    //Token* tokens = make_table((char*)testInputs[10]);
-    //print_token_stream(testInputs[10]);
-    //parse_table(tokens);
-    //free(tokens);
+        free(input);
+    } else {
+        const char* testInputs[] = {
+            "uint x = 5 + 2 * 3;",
+            "int y = (2 + 3) * 4 - 1;",
+            "int z = (10 - (3 + 2)) * 2;",
+            "x = 10 - 3 - 2;",
+            "x = 24 / 2 * 3;",
+            "if (5 + 3 * 2 > 10) { print 1; }",
+            "x = ((2 + 3) * (4 - 1)) / 5;",
+            "print (1 + 2 * 3 - 4 / 2);",
+            "x = (1 == x) * 4 && 1 + 45 / 5 % 6 + 1 * 2;",
+            "while (0 == 1) { x += 1 };",
+            "int main(int argc){ uint x = 0; float y = 5 };\nint foo(){ string y = 0; float z = 35 } ",
+        };
+        size_t NUM_TESTS = sizeof(testInputs) / sizeof(testInputs[0]);
 
+        for (size_t i = 0; i < NUM_TESTS; i++) {
+            PARSE_INFO("\n=== Test #%zu ===\nSource: %s\n", i+1, testInputs[i]);
+            Token* tokens = make_table((char*)testInputs[i]);
+            if (tokens == NULL) {
+                fprintf(stderr, "Failed to create token table\n");
+                exit(0);
+            }
+            parse_table(tokens);
+            free(tokens);
+        }
+    }
     return 0;
 }

@@ -1,1 +1,20 @@
-sdfasdfsdf
+int main(string args) {
+    int k = 0;
+    repeat {
+        uint x = 10;
+        while ( x != 0 ) {
+            if (x == 5) {
+                print "0xdeadbeef";
+            } else {
+                print x;
+            }
+            x -= 1;
+        }
+        foo(k, x);
+        k += 1;
+    } until (k >= 3);
+}
+
+string foo(int x, int y) {
+    print x + y;
+}
