@@ -6,42 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static int isKeyword(const Token t, const char *kw);
-static int isOperator(const Token t, const char *op);
-static int isDelimiter(const Token t, const char *delim);
-
-/* Forward declarations to stop code from yelling at me */
-static ASTNode* parse_program(void);
-static ASTNode* parse_expression(int min_precedence);
-static ASTNode* parse_declaration(void);
-static ASTNode* parse_assignment(void);
-static ASTNode* parse_block(void);
-static ASTNode*parse_if_statement(void);
-static ASTNode* parse_while_statement(void);
-static ASTNode* parse_repeat_until(void);
-static ASTNode* parse_print_statement(void);
-static ASTNode* parse_statement(void);
-static ASTNode* parse_primary(void);
-static ASTNode* parse_function_args(void);
-
-
-const char* TYPES[] = {"int", "uint", "string", "float", "char"};
-const char* KEYWORDS[] = {"while", "repeat", "for"};
-const char* ASSIGNMENTS[] = {"=", "+=", "-=", "/=", "*=", "%=", "&=", "|=", "<<=", ">>="};
-
-const char* UNARY[] = { "++", "--", "~", "!", };
-const char* FACTOR[] = { "*", "/", "%"};
-const char* ADD_SUB[] = { "+", "-"};
-const char* BITSHIFTS[] = { "<<", ">>"};
-const char* COMPARISON[] = { "<=", "=>", "<", ">"};
-const char* EQUALITY[] = { "!=", "==" };
-const char* BITAND[] = { "&" };
-const char* BITXOR[] = { "^" };
-const char* BITOR[] = { "|" };
-const char* LOGAND[] = { "&&" };
-const char* LOGOR[] = { "||" };
-
-static int str_is_in(const char* str, const char* arr[], int num) {
+int str_is_in(const char* str, const char* arr[], int num) {
     for (int i = 0; i < num; i++) {
         if (!strcmp(str, arr[i])) {
             return 1;
@@ -50,7 +15,7 @@ static int str_is_in(const char* str, const char* arr[], int num) {
     return 0;
 }
 
-static int get_precedence(const char* op) {
+int get_precedence(const char* op) {
     int result = 0;
     if (str_is_in(op, UNARY, sizeof(UNARY)/sizeof(char*)))
         result = 1;
@@ -77,52 +42,35 @@ static int get_precedence(const char* op) {
     return 11 - result;
 }
 
-/*
-  Global parser state
-*/
-static Token* g_tokens  = NULL; 
-static int    g_position= 0;
-static Token  g_current;
 
-#define PARSE_ERROR(message, ...)\
-    fprintf(stderr, "\n[PARSER ERROR] Parse Error near token '%s' on line %d; \n\t Error: " message "\n", g_current.lexeme, g_current.line, ##__VA_ARGS__);\
-    exit(0);\
-
-#define PARSE_INFO(message, ...)\
-    fprintf(stdout, "[PARSER DEBUG] " message , ##__VA_ARGS__);\
-
-#define CONTAINS_STR(val, str)\
-    str_is_in(str, val, sizeof(val)/sizeof(*val))
 
 /*
 Some Helper Functions
 -*/
-static int isKeyword(const Token t, const char *kw) {
+int isKeyword(const Token t, const char *kw) {
     return (t.type == TOKEN_KEYWORD && strcmp(t.lexeme, kw) == 0);
 }
-static int isOperator(const Token t, const char *op) {
+int isOperator(const Token t, const char *op) {
     return (t.type == TOKEN_OPERATOR && strcmp(t.lexeme, op) == 0);
 }
-static int isDelimiter(const Token t, const char *delim) {
+int isDelimiter(const Token t, const char *delim) {
     return (t.type == TOKEN_DELIMITER && strcmp(t.lexeme, delim) == 0);
 }
 
-static void advance() {
-    g_current = g_tokens[g_position];
-    if (g_current.type != TOKEN_EOF) {
-        g_position++;
+void advance(Parser* parser) {
+    parser->current = parser->tokens[parser->position];
+    if (parser->current.type != TOKEN_EOF) {
+        parser->position++;
     }
-    PARSE_INFO("advance() -> token='%s' (type=%d)\n",
-           g_current.lexeme, g_current.type);
+    PARSE_INFO("advance() -> token='%s' (type=%d)\n", parser->current.lexeme, parser->current.type);
 }
 
 /*
  AST Node Creation & Print
 */
 ASTNode* create_node(ASTType type, const Token* tk) {
-    PARSE_INFO("create_node(type=%d, token='%s')\n",
-           type, tk->lexeme);
-
+    const char* name = ast_type_to_string(type);
+    PARSE_INFO("create_node(type=%s, token='%s')\n", name, tk->lexeme);
     ASTNode* node = (ASTNode*)malloc(sizeof(ASTNode));
     if (!node) {
         fprintf(stderr, "Out of memory creating ASTNode\n");
@@ -143,6 +91,44 @@ ASTNode* create_node_simple(ASTType type) {
     return create_node(type, &empty);
 }
 
+const char* ast_type_to_string(ASTType type) {
+    switch (type) {
+        case AST_PROGRAM:
+            return "AST_PROGRAM";
+        case AST_BLOCK:
+            return "AST_BLOCK";
+        case AST_VARDECL:
+            return "AST_VARDECL";
+        case AST_VARDECLTYPE:
+            return "AST_VARDECLTYPE";
+        case AST_ASSIGN:
+            return "AST_ASSIGN";
+        case AST_IF:
+            return "AST_IF";
+        case AST_WHILE:
+            return "AST_WHILE";
+        case AST_REPEAT:
+            return "AST_REPEAT";
+        case AST_PRINT:
+            return "AST_PRINT";
+        case AST_FUNCTION_CALL:
+            return "AST_FUNCTION_CALL";
+        case AST_FUNCTION_ARGS:
+            return "AST_FUNCTION_ARGS";
+        case AST_BINOP:
+            return "AST_BINOP";
+        case AST_UNARYOP:
+            return "AST_UNARYOP";
+        case AST_LITERAL:
+            return "AST_LITERAL";
+        case AST_IDENTIFIER:
+            return "AST_IDENTIFIER";
+        default:
+            return "UNKNOWN AST";
+    }
+    return "UNKNOWN_AST";
+}
+
 static void print_ast_recursive(ASTNode *node, int level) {
     if (!node) return;
     for (int i = 0; i < level; i++) printf("  ");
@@ -157,7 +143,7 @@ static void print_ast_recursive(ASTNode *node, int level) {
         case AST_VARDECLTYPE:
             printf("VarDeclType: %s\n", node->current.lexeme); break;
         case AST_ASSIGN:
-            printf("Assignment to: %s\n", node->current.lexeme); break;
+            printf("Assignment: %s\n", node->current.lexeme); break;
         case AST_IF:
             printf("If\n"); break;
         case AST_WHILE:
@@ -189,13 +175,10 @@ static void print_ast_recursive(ASTNode *node, int level) {
     }
 
     if (node->body) {
-        for (ASTNode* s = node->body; s; s = s->next) {
-            print_ast_recursive(s, level+1);
-        }
+        print_ast_recursive(node->body, level+1);
     }
     if (node->next) {
-        //printf("Next: ");
-        //print_ast_recursive(node->next, level);
+        print_ast_recursive(node->next, level);
     }
 }
 
@@ -241,59 +224,57 @@ Token* make_table(char* in) {
  Expression Parsing (Operator Precedence)
 */
 
-static ASTNode* parse_primary() {
-    PARSE_INFO("parse_primary -> current='%s'\n", g_current.lexeme);
+ASTNode* parse_primary(Parser* parser) {
+    PARSE_INFO("parse_primary -> current='%s'\n", parser->current.lexeme);
 
-    if (isDelimiter(g_current, "(")) {
+    if (isDelimiter(parser->current, "(")) {
         PARSE_INFO("parse_primary -> '(' found\n");
-        advance();
-        ASTNode* expr = parse_expression(0);
-        if (!isDelimiter(g_current, ")")) {
-            PARSE_ERROR("Expected ')' after expression in parse_primary");
+        advance(parser);
+        ASTNode* expr = parse_expression(parser, 0);
+        if (!isDelimiter(parser->current, ")")) {
+            PARSE_ERROR(parser, "Expected ')' after expression in parse_primary");
         }
-        advance(); // consume ")"
+        advance(parser); // consume ")"
         return expr;
     }
-    if (g_current.type == TOKEN_NUMBER) {
-        PARSE_INFO("parse_primary -> NUMBER '%s'\n", g_current.lexeme);
-        ASTNode* node = create_node(AST_LITERAL, &g_current);
-        advance();
+    if (parser->current.type == TOKEN_NUMBER) {
+        PARSE_INFO("parse_primary -> NUMBER '%s'\n", parser->current.lexeme);
+        ASTNode* node = create_node(AST_LITERAL, &parser->current);
+        advance(parser);
         return node;
     }
-    if (g_current.type == TOKEN_STRING) {
-        PARSE_INFO("parse_primary -> STRING '%s'\n", g_current.lexeme);
-        ASTNode* node = create_node(AST_LITERAL, &g_current);
-        advance();
+    if (parser->current.type == TOKEN_STRING) {
+        PARSE_INFO("parse_primary -> STRING '%s'\n", parser->current.lexeme);
+        ASTNode* node = create_node(AST_LITERAL, &parser->current);
+        advance(parser);
         return node;
     }
-    if (g_current.type == TOKEN_IDENTIFIER) {
+    if (parser->current.type == TOKEN_IDENTIFIER) {
         // Could be function call or plain identifier
-        Token id = g_current;
-        advance();
-        if (isDelimiter(g_current, "(")) {
+        Token id = parser->current;
+        advance(parser);
+        if (isDelimiter(parser->current, "(")) {
             PARSE_INFO("parse_primary -> function call\n");
             ASTNode* callNode = create_node(AST_FUNCTION_CALL, &id);
-            advance(); // consume "("
+            advance(parser); // consume "("
             ASTNode* argHead = NULL;
             ASTNode* argTail = NULL;
-            while (!isDelimiter(g_current, ")") &&
-                   g_current.type != TOKEN_EOF)
-            {
-                ASTNode* arg = parse_expression(0);
+            while (!isDelimiter(parser->current, ")") && parser->current.type != TOKEN_EOF) {
+                ASTNode* arg = parse_expression(parser, 0);
                 if (!argHead) argHead = arg;
                 else          argTail->next = arg;
                 argTail = arg;
 
-                if (isDelimiter(g_current, ",")) {
-                    advance(); // consume comma
+                if (isDelimiter(parser->current, ",")) {
+                    advance(parser); // consume comma
                 } else {
                     break;
                 }
             }
-            if (!isDelimiter(g_current, ")")) {
-                PARSE_ERROR("Expected ')' after function arguments in parse_primary, found %s", g_current.lexeme);
+            if (!isDelimiter(parser->current, ")")) {
+                PARSE_ERROR(parser, "Expected ')' after function arguments in parse_primary, found %s", parser->current.lexeme);
             }
-            advance();
+            advance(parser);
             callNode->body = argHead;
             return callNode;
         } else {
@@ -304,56 +285,56 @@ static ASTNode* parse_primary() {
     }
 
     // Error if we get here
-    PARSE_ERROR("Unexpected token in parse_primary");
+    PARSE_ERROR(parser, "Unexpected token in parse_primary");
     return NULL;
 }
 
 // Parse expression based on operator precedence
-static ASTNode* parse_expression(int min_precedence) {
-    PARSE_INFO("parse_expression -> start, current='%s'\n", g_current.lexeme);
-    ASTNode* left = parse_primary();
+ASTNode* parse_expression(Parser* parser, int min_precedence) {
+    PARSE_INFO("parse_expression -> start, current='%s'\n", parser->current.lexeme);
+    ASTNode* left = parse_primary(parser);
 
-    while (g_current.type == TOKEN_OPERATOR) {
-        Token op = g_current; 
-        int prec = get_precedence(g_current.lexeme);
+    while (parser->current.type == TOKEN_OPERATOR) {
+        Token op = parser->current; 
+        int prec = get_precedence(parser->current.lexeme);
         if (prec < min_precedence) {
             break;
         }
-        advance();
-        ASTNode* right = parse_expression(prec + 1);
+        advance(parser);
+        ASTNode* right = parse_expression(parser, prec + 1);
         ASTNode* binNode = create_node(AST_BINOP, &op);
         binNode->left = left;
         binNode->right = right;
         left = binNode;
     }
-    PARSE_INFO("parse_expression -> end %s\n", g_current.lexeme);
+    PARSE_INFO("parse_expression -> end %s\n", parser->current.lexeme);
     return left;
 }
 
 /*
- Statement Parsing
-*/
+   Statement Parsing
+   */
 
 // parse_block: "{" { ... } "}"
-static ASTNode* parse_block(void) {
-    PARSE_INFO("parse_block -> start, current='%s'\n", g_current.lexeme);
-    if (!isDelimiter(g_current, "{")) {
-        PARSE_ERROR("Expected '{' at start of block");
+ASTNode* parse_block(Parser* parser) {
+    PARSE_INFO("parse_block -> start, current='%s'\n", parser->current.lexeme);
+    if (!isDelimiter(parser->current, "{")) {
+        PARSE_ERROR(parser, "Expected '{' at start of block");
     }
-    Token braceTok = g_current;
-    advance(); // consume "{"
+    Token braceTok = parser->current;
+    advance(parser); // consume "{"
 
     ASTNode* blockNode = create_node(AST_BLOCK, &braceTok);
     ASTNode* head = NULL;
     ASTNode* tail = NULL;
-    while (!isDelimiter(g_current, "}") && g_current.type != TOKEN_EOF) {
-        PARSE_INFO("parse_block -> reading stmt, current='%s'\n", g_current.lexeme);
+    while (!isDelimiter(parser->current, "}") && parser->current.type != TOKEN_EOF) {
+        PARSE_INFO("parse_block -> reading stmt, current='%s'\n", parser->current.lexeme);
         ASTNode* stmt = NULL;
 
-        if (CONTAINS_STR(TYPES, g_current.lexeme)) {
-            stmt = parse_declaration();
+        if (CONTAINS_STR(TYPES, parser->current.lexeme)) {
+            stmt = parse_declaration(parser);
         } else {
-            stmt = parse_statement();
+            stmt = parse_statement(parser);
         }
 
         if (head == NULL) // initialize the head
@@ -367,100 +348,100 @@ static ASTNode* parse_block(void) {
         }
     }
 
-    if (!isDelimiter(g_current, "}")) {
-        PARSE_ERROR("Expected '}' at end of block");
+    if (!isDelimiter(parser->current, "}")) {
+        PARSE_ERROR(parser, "Expected '}' at end of block");
     }
-    advance(); // consume "}"
+    advance(parser); // consume "}"
 
     // If you get a ;, just consume it to ignore it
-    if (isDelimiter(g_current, ";")) {
-        advance(); // consume ";"
+    if (isDelimiter(parser->current, ";")) {
+        advance(parser); // consume ";"
     }
     blockNode->body = head;
     PARSE_INFO("parse_block -> end\n");
     return blockNode;
 }
 
-static ASTNode* parse_if_statement(void) {
-    PARSE_INFO("parse_if_statement -> start, current='%s'\n", g_current.lexeme);
-    Token ifTok = g_current; 
-    advance(); // consume "if"
+ASTNode* parse_if_statement(Parser* parser) {
+    PARSE_INFO("parse_if_statement -> start, current='%s'\n", parser->current.lexeme);
+    Token ifTok = parser->current; 
+    advance(parser); // consume "if"
 
-    if (!isDelimiter(g_current, "(")) {
-        PARSE_ERROR("Expected '(' after 'if'");
+    if (!isDelimiter(parser->current, "(")) {
+        PARSE_ERROR(parser, "Expected '(' after 'if'");
     }
-    advance(); // consume "("
+    advance(parser); // consume "("
 
-    ASTNode* cond = parse_expression(0);
+    ASTNode* cond = parse_expression(parser, 0);
 
-    if (!isDelimiter(g_current, ")")) {
-        PARSE_ERROR("Expected ')' after if condition");
+    if (!isDelimiter(parser->current, ")")) {
+        PARSE_ERROR(parser, "Expected ')' after if condition");
     }
-    advance(); // consume ")"
+    advance(parser); // consume ")"
 
     ASTNode* ifNode = create_node(AST_IF, &ifTok);
-    ASTNode* thenBlock = parse_block();
+    ASTNode* thenBlock = parse_block(parser);
     ifNode->left  = cond;
     ifNode->right = thenBlock;
 
-    if (isKeyword(g_current, "else")) {
+    if (isKeyword(parser->current, "else")) {
         PARSE_INFO("parse_if_statement -> found 'else'\n");
-        advance(); // consume "else"
-        ASTNode* elseBlock = parse_block();
+        advance(parser); // consume "else"
+        ASTNode* elseBlock = parse_block(parser);
         ifNode->body = elseBlock;
     }
     PARSE_INFO("parse_if_statement -> end\n");
     return ifNode;
 }
 
-static ASTNode* parse_while_statement(void) {
+ASTNode* parse_while_statement(Parser* parser) {
     PARSE_INFO("parse_while_statement -> start\n");
-    Token whTok = g_current;
-    advance(); // consume "while"
+    Token whTok = parser->current;
+    advance(parser); // consume "while"
 
-    if (!isDelimiter(g_current, "(")) {
-        PARSE_ERROR("Expected '(' after 'while'");
+    if (!isDelimiter(parser->current, "(")) {
+        PARSE_ERROR(parser, "Expected '(' after 'while'");
     }
-    advance(); // consume "("
+    advance(parser); // consume "("
 
-    ASTNode* cond = parse_expression(0);
+    ASTNode* cond = parse_expression(parser, 0);
 
-    if (!isDelimiter(g_current, ")")) {
-        PARSE_ERROR("Expected ')' after while condition");
+    if (!isDelimiter(parser->current, ")")) {
+        PARSE_ERROR(parser, "Expected ')' after while condition");
     }
-    advance(); // consume ")"
+    advance(parser); // consume ")"
 
     ASTNode* whNode = create_node(AST_WHILE, &whTok);
-    ASTNode* bodyBlock = parse_block();
+    ASTNode* bodyBlock = parse_block(parser);
     whNode->left  = cond;
     whNode->right = bodyBlock;
     PARSE_INFO("parse_while_statement -> end\n");
     return whNode;
 }
 
-static ASTNode* parse_repeat_until(void) {
+ASTNode* parse_repeat_until(Parser* parser) {
     PARSE_INFO("parse_repeat_until -> start\n");
-    Token rptTok = g_current;
-    advance(); // consume "repeat"
+    Token rptTok = parser->current;
+    advance(parser); // consume "repeat"
 
-    ASTNode* blockNode = parse_block();
+    ASTNode* blockNode = parse_block(parser);
 
-    if (!isKeyword(g_current, "until")) {
-        PARSE_ERROR("Expected 'until' after repeat block");
+    if (!isKeyword(parser->current, "until")) {
+        PARSE_ERROR(parser, "Expected 'until' after repeat block");
     }
-    advance(); // consume "until"
+    advance(parser); // consume "until"
 
-    if (!isDelimiter(g_current, "(")) {
-        PARSE_ERROR("Expected '(' after 'until'");
+    if (!isDelimiter(parser->current, "(")) {
+        PARSE_ERROR(parser, "Expected '(' after 'until'");
     }
-    advance(); // consume "("
+    advance(parser); // consume "("
 
-    ASTNode* cond = parse_expression(0);
+    ASTNode* cond = parse_expression(parser, 0);
 
-    if (!isDelimiter(g_current, ")")) {
-        PARSE_ERROR("Expected ')' after repeat-until condition");
+    if (!isDelimiter(parser->current, ")")) {
+        PARSE_ERROR(parser, "Expected ')' after repeat-until condition");
     }
-    advance(); // consume ")"
+    advance(parser); // consume ")"
 
     ASTNode* rptNode = create_node(AST_REPEAT, &rptTok);
     rptNode->left  = blockNode;
@@ -469,180 +450,176 @@ static ASTNode* parse_repeat_until(void) {
     return rptNode;
 }
 
-static ASTNode* parse_print_statement(void) {
+ASTNode* parse_print_statement(Parser* parser) {
     PARSE_INFO("parse_print_statement -> start\n");
-    Token prTok = g_current;
-    advance(); // consume "print"
+    Token prTok = parser->current;
+    advance(parser); // consume "print"
 
     ASTNode* prNode = create_node(AST_PRINT, &prTok);
-    ASTNode* expr = parse_expression(0);
+    ASTNode* expr = parse_expression(parser, 0);
     prNode->right = expr;
 
-    if (!isDelimiter(g_current, ";")) {
-        PARSE_ERROR("Expected ';' after print statement");
+    if (!isDelimiter(parser->current, ";")) {
+        PARSE_ERROR(parser, "Expected ';' after print statement");
     }
-    advance(); // consume ";"
+    advance(parser); // consume ";"
     PARSE_INFO("parse_print_statement -> end\n");
     return prNode;
 }
 
-static ASTNode* parse_statement(void) {
-    PARSE_INFO("parse_statement -> start, current='%s'\n", g_current.lexeme);
+ASTNode* parse_statement(Parser* parser) {
+    PARSE_INFO("parse_statement -> start, current='%s'\n", parser->current.lexeme);
 
-    if (isKeyword(g_current, "if"))      return parse_if_statement();
-    if (isKeyword(g_current, "while"))   return parse_while_statement();
-    if (isKeyword(g_current, "repeat"))  return parse_repeat_until();
-    if (isKeyword(g_current, "print"))   return parse_print_statement();
-    if (isDelimiter(g_current, "{"))     return parse_block();
+    if (isKeyword(parser->current, "if"))      return parse_if_statement(parser);
+    if (isKeyword(parser->current, "while"))   return parse_while_statement(parser);
+    if (isKeyword(parser->current, "repeat"))  return parse_repeat_until(parser);
+    if (isKeyword(parser->current, "print"))   return parse_print_statement(parser);
+    if (isDelimiter(parser->current, "{"))     return parse_block(parser);
 
-    if (g_current.type == TOKEN_IDENTIFIER) {
+    if (parser->current.type == TOKEN_IDENTIFIER) {
         // Peek next token
-        Token nextTok = g_tokens[g_position];
-        if (nextTok.type == TOKEN_OPERATOR && !strcmp(nextTok.lexeme, "=")) {
-            return parse_assignment();
+        Token nextTok = parser->tokens[parser->position];
+        if (CONTAINS_STR(ASSIGNMENTS, nextTok.lexeme)) {
+            ASTNode* lhs = create_node(AST_IDENTIFIER, &parser->current);
+            advance(parser);
+            return parse_assignment(parser, lhs);
         } else {
             // expression statement
-            ASTNode* expr = parse_expression(0);
+            ASTNode* expr = parse_expression(parser, 0);
             // If you get a ;, just consume it to ignore it
-            if (isDelimiter(g_current, ";")) {
-                advance(); // consume ";"
+            if (isDelimiter(parser->current, ";")) {
+                advance(parser); // consume ";"
             }
             return expr;
         }
     }
 
     // fallback: expression statement
-    ASTNode* expr = parse_expression(0);
-    if (!isDelimiter(g_current, ";")) {
-        PARSE_ERROR("Expected ';' after expression statement");
+    ASTNode* expr = parse_expression(parser, 0);
+    if (!isDelimiter(parser->current, ";")) {
+        PARSE_ERROR(parser, "Expected ';' after expression statement, found %s", parser->current.lexeme);
     }
-    advance(); // consume ";"
+    advance(parser); // consume ";"
     PARSE_INFO("parse_statement -> end (expression stmt)\n");
     return expr;
 }
 
 
 // parse args for function main(int argc, char* argv[])
-static ASTNode* parse_function_args() {
+ASTNode* parse_function_args(Parser* parser) {
     PARSE_INFO("parse_function_args -> start\n");
     ASTNode* func_args = NULL;
-    if (isDelimiter(g_current, ")")) {
-        advance();
+    if (isDelimiter(parser->current, ")")) {
+        advance(parser);
         return NULL;
     }
     while (1) {
-        if (!CONTAINS_STR(TYPES, g_current.lexeme)) {
-            PARSE_ERROR("Expected type in function decl, found %s", g_current.lexeme);
+        if (!CONTAINS_STR(TYPES, parser->current.lexeme)) {
+            PARSE_ERROR(parser, "Expected type in function decl, found %s", parser->current.lexeme);
         }
-        Token type = g_current;
+        Token type = parser->current;
         // Could be strict here to make semantics easier
         // Or lax, making parser easier but semantics harder
-        ASTNode* arg_type = create_node(AST_VARDECLTYPE, &g_current);
+        ASTNode* arg_type = create_node(AST_VARDECLTYPE, &parser->current);
         if (func_args == NULL) {
             func_args = arg_type;
         }
-        advance();
-        if (g_current.type != TOKEN_IDENTIFIER) {
-            PARSE_ERROR("Expected identifier in function arg with type %s, found %s", type.lexeme, g_current.lexeme);
+        advance(parser);
+        if (parser->current.type != TOKEN_IDENTIFIER) {
+            PARSE_ERROR(parser, "Expected identifier in function arg with type %s, found %s", type.lexeme, parser->current.lexeme);
         }
-        arg_type->body = create_node(AST_VARDECL, &g_current);
+        arg_type->body = create_node(AST_VARDECL, &parser->current);
         if (arg_type != func_args)
             func_args->next = arg_type;
-        advance();
-        if (!isDelimiter(g_current, ",")) {
+        advance(parser);
+        if (!isDelimiter(parser->current, ",")) {
             break;
         }
-        advance();
+        advance(parser);
     }
-    if (!isDelimiter(g_current, ")")) {
-        PARSE_ERROR("Expected delimiter ')', found %s", g_current.lexeme);
+    if (!isDelimiter(parser->current, ")")) {
+        PARSE_ERROR(parser, "Expected delimiter ')', found %s", parser->current.lexeme);
     }
-    advance();
+    advance(parser);
 
     // Now get the body of the function
-    if (isDelimiter(g_current, "{")) {
+    if (isDelimiter(parser->current, "{")) {
     } else {
-        PARSE_ERROR("Expected delimiter ')', found %s", g_current.lexeme);
+        PARSE_ERROR(parser, "Expected delimiter ')', found %s", parser->current.lexeme);
     }
 
     return func_args;
 }
 
 // parse_declaration: "int x"
-static ASTNode* parse_declaration() {
+ASTNode* parse_declaration(Parser* parser) {
     PARSE_INFO("parse_declaration -> start\n");
     for (int i = 0; i < sizeof(TYPES)/sizeof(char*); i++) {
-        if ((g_current.type == TOKEN_KEYWORD && strcmp(g_current.lexeme, TYPES[i]) == 0)) {
+        if ((parser->current.type == TOKEN_KEYWORD && strcmp(parser->current.lexeme, TYPES[i]) == 0)) {
             break;
         }
         // Could not find valid type
         if (i == sizeof(TYPES)/sizeof(char*) - 1) {
-            PARSE_ERROR("Expected a type, found something else");
+            PARSE_ERROR(parser, "Expected a type, found something else");
         }
     }
-    Token typeToken = g_current;
-    advance();
-    ASTNode* declNode = create_node(AST_VARDECLTYPE, &typeToken);
-    
-    if (g_current.type != TOKEN_IDENTIFIER) {
-        PARSE_ERROR("Expected identifier after type");
-    }
-    Token idToken = g_current;
-    advance(); // consume identifier
-    ASTNode* declIdNode = create_node(AST_VARDECL, &idToken);
-    declNode->right = declIdNode;
+    ASTNode* declNode = create_node(AST_VARDECLTYPE, &parser->current);
+    advance(parser);
 
+    if (parser->current.type != TOKEN_IDENTIFIER) {
+        PARSE_ERROR(parser, "Expected identifier after type");
+    }
+    ASTNode* lhs = create_node(AST_VARDECL, &parser->current);
+    advance(parser);
 
     // Parse assignment to an identifier after a declaration
-    if (str_is_in(g_current.lexeme, ASSIGNMENTS, sizeof(ASSIGNMENTS)/sizeof(char*))) {
-        PARSE_INFO("parse_declaration assignment -> found '%s'\n", g_current.lexeme);
-        advance();
-        ASTNode* initExpr = parse_expression(0);
-        declIdNode->right = initExpr;
-        if (isDelimiter(g_current, ";")) {
-            advance(); // consume ';'
-        } else if (isDelimiter(g_current, "}")) {
-        } else {
-            PARSE_ERROR("Expected ';' or after variable declaration");
+    if (CONTAINS_STR(ASSIGNMENTS, parser->current.lexeme)) {
+        PARSE_INFO("parse_declaration assignment -> found '%s'\n", parser->current.lexeme);
+        ASTNode* assignmnent = parse_assignment(parser, lhs);
+        declNode->next = assignmnent;
+        if (isDelimiter(parser->current, ";")) {
+            advance(parser); // consume ';'
+        } else if (isDelimiter(parser->current, "}")) {
         }
-    } else if (isDelimiter(g_current, "(")) { // Function declaration, parse the 
-        PARSE_INFO("parse_decl function %s\n", g_current.lexeme);
-        advance();
-        ASTNode* func_args = parse_function_args();
-        declIdNode->right = func_args;
-        declIdNode->body = parse_block();
+    } else if (isDelimiter(parser->current, "(")) { // Function declaration, parse the 
+        PARSE_INFO("parse_decl function %s\n", parser->current.lexeme);
+        advance(parser);
+        ASTNode* func_args = parse_function_args(parser);
+        lhs->right = func_args;
+        lhs->body = parse_block(parser);
+        declNode->body = lhs;
+    } else if (isDelimiter(parser->current, ";")) {
+        declNode->body = lhs;
+        advance(parser);
     }
     PARSE_INFO("parse_declaration -> end\n");
     return declNode;
 }
 
 // parse_assignment: "x = expr;"
-static ASTNode* parse_assignment(void) {
+ASTNode* parse_assignment(Parser* parser, ASTNode* lhs) {
     PARSE_INFO("parse_assignment -> start\n");
-    Token ident = g_current;
-    advance(); // consume identifier
-
-    if (!isOperator(g_current, "=")) {
-        PARSE_ERROR("Expected '=' in assignment");
+    if (!CONTAINS_STR(ASSIGNMENTS, parser->current.lexeme)) {
+        PARSE_ERROR(parser, "Expected assignment operator in assignment, found %s", parser->current.lexeme);
     }
-    advance(); // consume "="
-
-    ASTNode* assignNode = create_node(AST_ASSIGN, &ident);
-    ASTNode* rhs = parse_expression(0);
+    ASTNode* assignNode = create_node(AST_ASSIGN, &parser->current);
+    advance(parser); // consume operator
+    ASTNode* rhs = parse_expression(parser, 0);
     assignNode->right = rhs;
+    assignNode->left = lhs;
 
-    if (!isDelimiter(g_current, ";")) {
-        PARSE_ERROR("Expected ';' after assignment");
+    if (!isDelimiter(parser->current, ";")) {
+        PARSE_ERROR(parser, "Expected ';' after assignment");
     }
-    advance(); // consume ";"
+    advance(parser); // consume ";"
     PARSE_INFO("parse_assignment -> end\n");
     return assignNode;
 }
 
 /*
-  6) parse_program
-*/
-static ASTNode* parse_program(void) {
+   6) parse_program
+   */
+ASTNode* parse_program(Parser* parser) {
     PARSE_INFO("parse_program -> start\n");
     Token dummy;
     memset(&dummy, 0, sizeof(Token));
@@ -651,18 +628,21 @@ static ASTNode* parse_program(void) {
     ASTNode* head = NULL;
     ASTNode* tail = NULL;
 
-    while (g_current.type != TOKEN_EOF) {
-        PARSE_INFO("parse_program -> reading top-level, current='%s'\n", g_current.lexeme);
+    while (parser->current.type != TOKEN_EOF) {
+        PARSE_INFO("parse_program -> reading top-level, current='%s'\n", parser->current.lexeme);
         ASTNode* node = NULL;
-        if (str_is_in(g_current.lexeme, TYPES, sizeof(TYPES)/sizeof(char*))) {
-            node = parse_declaration();
-        } else if (str_is_in(g_current.lexeme, KEYWORDS, sizeof(KEYWORDS)/sizeof(char*))){
-            node = parse_statement();
+        if (str_is_in(parser->current.lexeme, TYPES, sizeof(TYPES)/sizeof(char*))) {
+            node = parse_declaration(parser);
+        } else if (str_is_in(parser->current.lexeme, KEYWORDS, sizeof(KEYWORDS)/sizeof(char*))){
+            node = parse_statement(parser);
         } else {
-            node = parse_statement();
+            node = parse_statement(parser);
         }
-        if (!head) head = node;
-        else       tail->next = node;
+        if (!head) {
+            head = node;
+        } else {
+            tail->next = node;
+        }
         tail = node;
         while (tail->next) {
             tail = tail->next;
@@ -673,21 +653,32 @@ static ASTNode* parse_program(void) {
     return programNode;
 }
 
-/*
-  parse_table (entry point)
-*/
-void parse_table(Token* table) {
-    PARSE_INFO("parse_table -> start\n");
-    g_tokens   = table;
-    g_position = 0;
-    advance(); 
+Parser new_parser(char *input) {
+    Parser parser = {};
+    memset(&parser, 0, sizeof(Parser));
+    parser.tokens = make_table(input);
+    if (parser.tokens == NULL) {
+        fprintf(stderr, "Failed to create token table\n");
+        exit(0);
+    }
+    return parser;
+}
 
-    ASTNode* root = parse_program();
+int parse(Parser* parser) {
+    PARSE_INFO("parse_table -> start\n");
+    advance(parser); 
+
+    parser->root = parse_program(parser);
     PARSE_INFO("\n--- PARSED AST ---\n");
-    print_ast(root);
+    print_ast(parser->root);
 
     // Freed memory omitted for brevity
     PARSE_INFO("parse_table -> end\n");
+    return 0;
+}
+
+void free_parser(Parser parser) {
+    free(parser.tokens);
 }
 
 #define MAXBUFLEN 1000000
@@ -705,15 +696,10 @@ int main(int argc, char* argv[]) {
             }
             fclose(fp);
         }
-        int position = 0;
         PARSE_INFO("Analyzing input:\n%s\n\n", input);
-        Token* tokens = make_table(input);
-        if (tokens == NULL) {
-            fprintf(stderr, "Failed to create token table\n");
-            exit(0);
-        }
-        parse_table(tokens);
-        free(tokens);
+        Parser parser = new_parser(input);
+        parse(&parser);
+        free_parser(parser);
         free(input);
     } else {
         const char* testInputs[] = {
@@ -738,8 +724,10 @@ int main(int argc, char* argv[]) {
                 fprintf(stderr, "Failed to create token table\n");
                 exit(0);
             }
-            parse_table(tokens);
-            free(tokens);
+            Parser parser = new_parser(input);
+            parse(&parser);
+            free_parser(parser);
+            free(input);
         }
     }
     return 0;

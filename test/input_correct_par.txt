@@ -7,7 +7,8 @@ int main(string args) {
 /*
  comment
 */
-    int k = 0;
+    int k;
+    k = 1;
     repeat {
         uint x = 10;
         while ( x != 0 ) {
