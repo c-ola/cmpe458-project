@@ -140,17 +140,20 @@ const char* error_to_string(ParserErrorType e) {
 }
 
 
-
 #define PARSE_ERROR(parser, error_type, message, ...)\
     fprintf(stderr, "\n[PARSER ERROR] Error near token '%s' on line %d; \n\t Error: %s " message "\n", parser->current.lexeme, parser->current.line, error_to_string(error_type), ##__VA_ARGS__);\
-    exit(0);\
 
 #define PARSE_ERROR_S(parser, error_type, ...)\
     fprintf(stderr, "\n[PARSER ERROR] Error near token '%s' on line %d; \n\t Error: %s\n", parser->current.lexeme, parser->current.line, error_to_string(error_type), ##__VA_ARGS__);\
     exit(0);\
 
-#define PARSE_INFO(message, ...)\
-    fprintf(stdout, "[PARSER DEBUG] " message , ##__VA_ARGS__);\
+
+#define DEBUG
+#ifdef DEBUG
+#define PARSE_INFO(message, ...) fprintf(stdout, "[PARSER DEBUG] " message , ##__VA_ARGS__);
+#else
+#define PARSE_INFO(message, ...)
+#endif
 
 #define CONTAINS_STR(val, str)\
     str_is_in(str, val, sizeof(val)/sizeof(*val))

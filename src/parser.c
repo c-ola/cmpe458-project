@@ -232,7 +232,7 @@ ASTNode* parse_primary(Parser* parser) {
         advance(parser);
         ASTNode* expr = parse_expression(parser, 0);
         if (!isDelimiter(parser->current, ")")) {
-            PARSE_ERROR(parser, EXPECTED_DELIMITER, ")")
+            PARSE_ERROR(parser, EXPECTED_DELIMITER, "')' to match '('")
         }
         advance(parser); // consume ")"
         return expr;
@@ -272,7 +272,7 @@ ASTNode* parse_primary(Parser* parser) {
                 }
             }
             if (!isDelimiter(parser->current, ")")) {
-                PARSE_ERROR(parser, EXPECTED_DELIMITER, ")")
+                PARSE_ERROR(parser, EXPECTED_DELIMITER, "')' in function call")
             }
             advance(parser);
             callNode->body = argHead;
@@ -319,7 +319,7 @@ ASTNode* parse_expression(Parser* parser, int min_precedence) {
 ASTNode* parse_block(Parser* parser) {
     PARSE_INFO("parse_block -> start, current='%s'\n", parser->current.lexeme);
     if (!isDelimiter(parser->current, "{")) {
-        PARSE_ERROR(parser, EXPECTED_DELIMITER, "}");
+        PARSE_ERROR(parser, EXPECTED_DELIMITER, "{ in block");
     }
     Token braceTok = parser->current;
     advance(parser); // consume "{"
@@ -349,7 +349,7 @@ ASTNode* parse_block(Parser* parser) {
     }
 
     if (!isDelimiter(parser->current, "}")) {
-        PARSE_ERROR(parser, EXPECTED_DELIMITER, "}");
+        PARSE_ERROR(parser, EXPECTED_DELIMITER, "'}' to match '{' in a block");
     }
     advance(parser); // consume "}"
 
@@ -602,7 +602,7 @@ ASTNode* parse_assignment(Parser* parser, ASTNode* lhs) {
     assignNode->left = lhs;
 
     if (!isDelimiter(parser->current, ";")) {
-        PARSE_ERROR(parser, EXPECTED_DELIMITER, ";");
+        PARSE_ERROR(parser, EXPECTED_DELIMITER, "; after assignment");
     }
     advance(parser); // consume ";"
     PARSE_INFO("parse_assignment -> end\n");
