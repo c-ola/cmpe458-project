@@ -77,12 +77,6 @@ const char* LOGOR[] = { "||" };
 int str_is_in(const char* str, const char* arr[], int num);
 
 
-typedef enum _ParserError {
-    UNEXPECTED,
-    UNEXPECTED_DELIMITER,
-} ParserError;
-
-
 typedef struct _Parser {
     Token* tokens;
     Token current;
@@ -108,8 +102,51 @@ ASTNode* parse_statement(Parser* parser);
 ASTNode* parse_primary(Parser* parser);
 ASTNode* parse_function_args(Parser* parser);
 
-#define PARSE_ERROR(parser, message, ...)\
-    fprintf(stderr, "\n[PARSER ERROR] Parse Error near token '%s' on line %d; \n\t Error: " message "\n", parser->current.lexeme, parser->current.line, ##__VA_ARGS__);\
+#define DEFINE_ERROR_ENUM(name, ...)                 \
+    typedef enum { __VA_ARGS__ } name;               \
+    const char* name##_to_string(name e) {           \
+        switch (e) {                                 \
+            __VA_ARGS__                              \
+        }                                           \
+        return "Unknown";                            \
+    }
+
+// Helper macro to generate case labels
+#define ENUM_CASE(e) case e: return #e;
+
+// Define the enum and its string conversion function
+#define ERRORS \
+    X(EXPECTED)\
+    X(UNEXPECTED)\
+    X(EXPECTED_DELIMITER)\
+    X(EXPECTED_ASSIGNMENT)\
+    X(EXPECTED_TYPE_IN_FUNC_DECL)\
+    X(EXPECTED_TYPE)\
+    X(EXPECTED_IDENTIFIER)
+
+typedef enum {
+    #define X(name) name,
+    ERRORS
+    #undef X
+} ParserErrorType;
+
+const char* error_to_string(ParserErrorType e) {
+    switch (e) {
+        #define X(name) case name: return #name;
+        ERRORS
+        #undef X
+    }
+    return "Unknown";
+}
+
+
+
+#define PARSE_ERROR(parser, error_type, message, ...)\
+    fprintf(stderr, "\n[PARSER ERROR] Error near token '%s' on line %d; \n\t Error: %s " message "\n", parser->current.lexeme, parser->current.line, error_to_string(error_type), ##__VA_ARGS__);\
+    exit(0);\
+
+#define PARSE_ERROR_S(parser, error_type, ...)\
+    fprintf(stderr, "\n[PARSER ERROR] Error near token '%s' on line %d; \n\t Error: %s\n", parser->current.lexeme, parser->current.line, error_to_string(error_type), ##__VA_ARGS__);\
     exit(0);\
 
 #define PARSE_INFO(message, ...)\
