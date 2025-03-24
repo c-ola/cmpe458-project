@@ -1,22 +1,9 @@
 #include <stdlib.h>
-#include <parser.h>
-#include <lexer.h>
-#include <tokens.h>
-
-typedef struct Symbol {
-    char name[100];
-    int type; // data type
-    int scope_level;
-    int line_declared;
-    int is_initialized;
-    struct Symbol* next; // for linked list
-    
-} Symbol;
-
-typedef struct {
-    Symbol* head; // first symbol
-    int current_scope;
-} SymbolTable;
+#include <string.h>
+#include "tokens.h"
+#include "semantic.h"
+#include "parser.h"
+#include "lexer.h"
 
 /*
 
@@ -201,13 +188,24 @@ int check_assignment(ASTNode* node, SymbolTable* table) {
 }
 
 // Check an expression for type correctness
-int check_expression(ASTNode* node, SymbolTable* table);
+int check_expression(ASTNode* node, SymbolTable* table) {
+    return 0;
+}
+
+// Check statement
+int check_statement(ASTNode* node, SymbolTable* table) {
+    return 0;
+}
 
 // Check a block of statements, handling scope
-int check_block(ASTNode* node, SymbolTable* table);
+int check_block(ASTNode* node, SymbolTable* table) {
+    return 0;
+}
 
 // Check a condition (e.g., in if statements)
-int check_condition(ASTNode* node, SymbolTable* table);
+int check_condition(ASTNode* node, SymbolTable* table) {
+    return 0;
+}
 
 
 /*
@@ -215,16 +213,6 @@ int check_condition(ASTNode* node, SymbolTable* table);
 Step 4
 
 */
-
-typedef enum {
-    SEM_ERROR_NONE,
-    SEM_ERROR_UNDECLARED_VARIABLE,
-    SEM_ERROR_REDECLARED_VARIABLE,
-    SEM_ERROR_TYPE_MISMATCH,
-    SEM_ERROR_UNINITIALIZED_VARIABLE,
-    SEM_ERROR_INVALID_OPERATION,
-    SEM_ERROR_SEMANTIC_ERROR  // Generic semantic error
-} SemanticErrorType;
 
 // Report semantic errors
 void semantic_error(SemanticErrorType error, const char* name, int line) {

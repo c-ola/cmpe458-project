@@ -41,7 +41,7 @@ Token* make_table(char* input);
 void parse_table(Token* table);
 void print_ast(ASTNode* root);
 
-const char* ast_type_to_string(ASTType type);
+static const char* ast_type_to_string(ASTType type);
 
 
 int isKeyword(const Token t, const char *kw);
@@ -49,21 +49,21 @@ int isOperator(const Token t, const char *op);
 int isDelimiter(const Token t, const char *delim);
 int get_precedence(const char* op);
 
-const char* TYPES[] = {"int", "uint", "string", "float", "char"};
-const char* KEYWORDS[] = {"while", "repeat", "for"};
-const char* ASSIGNMENTS[] = {"=", "+=", "-=", "/=", "*=", "%=", "&=", "|=", "<<=", ">>="};
+static const char* TYPES[] = {"int", "uint", "string", "float", "char"};
+static const char* KEYWORDS[] = {"while", "repeat", "for"};
+static const char* ASSIGNMENTS[] = {"=", "+=", "-=", "/=", "*=", "%=", "&=", "|=", "<<=", ">>="};
 
-const char* UNARY[] = { "++", "--", "~", "!", };
-const char* FACTOR[] = { "*", "/", "%"};
-const char* ADD_SUB[] = { "+", "-"};
-const char* BITSHIFTS[] = { "<<", ">>"};
-const char* COMPARISON[] = { "<=", "=>", "<", ">"};
-const char* EQUALITY[] = { "!=", "==" };
-const char* BITAND[] = { "&" };
-const char* BITXOR[] = { "^" };
-const char* BITOR[] = { "|" };
-const char* LOGAND[] = { "&&" };
-const char* LOGOR[] = { "||" };
+static const char* UNARY[] = { "++", "--", "~", "!", };
+static const char* FACTOR[] = { "*", "/", "%"};
+static const char* ADD_SUB[] = { "+", "-"};
+static const char* BITSHIFTS[] = { "<<", ">>"};
+static const char* COMPARISON[] = { "<=", "=>", "<", ">"};
+static const char* EQUALITY[] = { "!=", "==" };
+static const char* BITAND[] = { "&" };
+static const char* BITXOR[] = { "^" };
+static const char* BITOR[] = { "|" };
+static const char* LOGAND[] = { "&&" };
+static const char* LOGOR[] = { "||" };
 
 int str_is_in(const char* str, const char* arr[], int num);
 
@@ -112,7 +112,7 @@ typedef enum {
     #undef X
 } ParserErrorType;
 
-const char* error_to_string(ParserErrorType e) {
+static const char* error_to_string(ParserErrorType e) {
     switch (e) {
         #define X(name) case name: return #name;
         ERRORS

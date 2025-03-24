@@ -45,6 +45,7 @@ int check_declaration(ASTNode* node, SymbolTable* table);
 int check_program(ASTNode* node, SymbolTable* table);
 int check_assignment(ASTNode* node, SymbolTable* table);
 int check_expression(ASTNode* node, SymbolTable* table);
+int check_statement(ASTNode* node, SymbolTable* table);
 int check_block(ASTNode* node, SymbolTable* table);
 int check_condition(ASTNode* node, SymbolTable* table);
 
