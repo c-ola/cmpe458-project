@@ -19,11 +19,15 @@ int main(int argc, char* argv[]) {
         }
         PARSE_INFO("Analyzing input:\n%s\n\n", input);
         Parser parser = new_parser(input);
-        parse(&parser);
+        ASTNode *programNode = parse_program(&parser);
+
+        // parse(&parser);
         free_parser(parser);
         free(input);
     } else {
         const char* testInputs[] = {
+        "int main(){ int x = 0; }",
+        "x = 5;",
         "uint x = 5 + 2 * 3;",
         "int y = (2 + 3) * 4 - 1;",
         "int z = (10 - (3 + 2)) * 2;",
@@ -34,7 +38,6 @@ int main(int argc, char* argv[]) {
         "print (1 + 2 * 3 - 4 / 2);",
         "x = (1 == x) * 4 && 1 + 45 / 5 % 6 + 1 * 2;",
         "while (0 == 1) { x += 1; }",
-        "int main(){ int x = 0; }",
         "int main(){ string x = \"hey\"; }",
         "if ((0 + 1 == 1) && (1 + 0 == 1)) { print 1; }",
         //"float f = 3.14;", // FLOATS DO NOT WORK
@@ -42,6 +45,7 @@ int main(int argc, char* argv[]) {
         "foo(2, 15);",
         };
         size_t NUM_TESTS = sizeof(testInputs) / sizeof(testInputs[0]);
+        NUM_TESTS = 1;
 
         for (size_t i = 0; i < NUM_TESTS; i++) {
             PARSE_INFO("\n=== Test #%zu ===\nSource: %s\n", i+1, testInputs[i]);
@@ -49,7 +53,11 @@ int main(int argc, char* argv[]) {
 #ifdef DEBUG
             print_token_stream(testInputs[i]);
 #endif
+            // using this so that the parse 
             parse(&parser);
+            
+            analyze_semantics(parser.root);
+
             free_parser(parser);
         }
     }

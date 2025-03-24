@@ -149,21 +149,29 @@ int check_declaration(ASTNode* node, SymbolTable* table) {
 // Check program node
 int check_program(ASTNode* node, SymbolTable* table) {
     if (!node) return 1;
-    
+
+    if (node->body) printf("Body: %d\n", node->body->type); else printf("Null body\n");
+    if (node->left) printf("Left: %d\n", node->left->type); else printf("Null left\n");
+    if (node->right) printf("Right: %d\n", node->right->type); else printf("Null right\n");
+    if (node->next) printf("Next: %d\n", node->next->type); else printf("Null next\n");
+
     int result = 1;
-    
-    if (node->type == AST_PROGRAM) {
-        // Check left child (statement)
-        if (node->left) {
-            result = check_statement(node->left, table) && result;
-        }
-        
-        // Check right child (rest of program)
-        if (node->right) {
-            result = check_program(node->right, table) && result;
-        }
+    switch (node->type){
+        case AST_PROGRAM:
+            if (node->body) {
+                result = check_statement(node->body, table) && result;
+            }
+            
+            // Check right child (rest of program)
+            if (node->right) {
+                result = check_program(node->right, table) && result;
+            }
+            break;
+
+        default:
+            break;
     }
-    
+
     return result;
 }
 
@@ -179,7 +187,7 @@ int check_assignment(ASTNode* node, SymbolTable* table) {
         semantic_error(SEM_ERROR_UNDECLARED_VARIABLE, name, node->left->current.line);
         return 0;
     }
-
+    
     int expr_valid = check_expression(node->right, table);
     if (expr_valid) {
         symbol->is_initialized = 1;
@@ -189,11 +197,47 @@ int check_assignment(ASTNode* node, SymbolTable* table) {
 
 // Check an expression for type correctness
 int check_expression(ASTNode* node, SymbolTable* table) {
+    if (!node) return 1;
+
+    switch (node->type){
+        case AST_BINOP:
+            break;
+        
+        case AST_UNARYOP:
+            break;
+    }
+
     return 0;
 }
 
 // Check statement
 int check_statement(ASTNode* node, SymbolTable* table) {
+    int result = 1;
+    switch (node->type){
+        case AST_BLOCK:
+            result = check_block(node, table) && result;
+            break;
+        case AST_VARDECLTYPE:
+            break;    
+        case AST_VARDECLFUNC:
+            break;
+        case AST_VARDECL:
+            break;
+        case AST_ASSIGN:
+            result = check_assignment(node, table) && result;
+            break;
+        case AST_IF:
+            break;
+        case AST_WHILE:
+            break;
+        case AST_REPEAT:
+            break;
+        case AST_PRINT:
+            break;
+        case AST_FUNCTION_CALL:
+            break;
+        
+    }
     return 0;
 }
 
