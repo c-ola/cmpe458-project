@@ -7,4 +7,7 @@ Debug
 test
 *.vcxproj*
 cmake_install.cmake
+CMakeCache.txt
 compiler.sln
+compiler
+Makefile

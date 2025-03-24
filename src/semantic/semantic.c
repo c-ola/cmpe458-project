@@ -94,7 +94,7 @@ void remove_symbols_in_current_scope(SymbolTable* table) {
             }
             Symbol* to_free = current;
             current = current->next;
-            free(to_free->name);
+            // free(to_free->name); // this fixed an error
             free(to_free);
         } else {
             prev = current;
@@ -134,7 +134,7 @@ int check_declaration(ASTNode* node, SymbolTable* table) {
     if (node->type != AST_VARDECL) {
         return 0;
     }
-
+    
     const char* name = node->current.lexeme;
     Symbol* existing = lookup_symbol_current_scope(table, name);
     if (existing) {
@@ -150,11 +150,6 @@ int check_declaration(ASTNode* node, SymbolTable* table) {
 int check_program(ASTNode* node, SymbolTable* table) {
     if (!node) return 1;
 
-    if (node->body) printf("Body: %d\n", node->body->type); else printf("Null body\n");
-    if (node->left) printf("Left: %d\n", node->left->type); else printf("Null left\n");
-    if (node->right) printf("Right: %d\n", node->right->type); else printf("Null right\n");
-    if (node->next) printf("Next: %d\n", node->next->type); else printf("Null next\n");
-
     int result = 1;
     switch (node->type){
         case AST_PROGRAM:
@@ -166,9 +161,6 @@ int check_program(ASTNode* node, SymbolTable* table) {
             if (node->right) {
                 result = check_program(node->right, table) && result;
             }
-            break;
-
-        default:
             break;
     }
 
@@ -182,7 +174,7 @@ int check_assignment(ASTNode* node, SymbolTable* table) {
     }
 
     const char* name = node->left->current.lexeme;
-    Symbol* symbol = lookup_symbol(table,name);
+    Symbol* symbol = lookup_symbol(table, name);
     if (!symbol) {
         semantic_error(SEM_ERROR_UNDECLARED_VARIABLE, name, node->left->current.line);
         return 0;
@@ -197,7 +189,7 @@ int check_assignment(ASTNode* node, SymbolTable* table) {
 
 // Check an expression for type correctness
 int check_expression(ASTNode* node, SymbolTable* table) {
-    if (!node) return 1;
+    if (!node) return 0;
 
     switch (node->type){
         case AST_BINOP:
@@ -207,7 +199,6 @@ int check_expression(ASTNode* node, SymbolTable* table) {
             break;
     }
 
-    return 0;
 }
 
 // Check statement
@@ -215,25 +206,23 @@ int check_statement(ASTNode* node, SymbolTable* table) {
     int result = 1;
     switch (node->type){
         case AST_BLOCK:
-            result = check_block(node, table) && result;
+            result = check_block(node->body, table) && result;
             break;
         case AST_VARDECLTYPE:
-            break;    
         case AST_VARDECLFUNC:
-            break;
-        case AST_VARDECL:
+        // case AST_VARDECL:
+            result = check_declaration(node->body, table) && result;
             break;
         case AST_ASSIGN:
             result = check_assignment(node, table) && result;
             break;
         case AST_IF:
-            break;
         case AST_WHILE:
+            result = check_condition(node->left, table) && result;
             break;
         case AST_REPEAT:
             break;
         case AST_PRINT:
-            break;
         case AST_FUNCTION_CALL:
             break;
         
@@ -243,14 +232,56 @@ int check_statement(ASTNode* node, SymbolTable* table) {
 
 // Check a block of statements, handling scope
 int check_block(ASTNode* node, SymbolTable* table) {
+    //iterate through statements within scope
+    enter_scope(table);
+    
+    ASTNode* temp = node;
+    while (1) {
+        check_statement(temp, table);
+        if (temp->next) temp = temp->next; else break;
+    }
+
+    // scope cleanup
+    remove_symbols_in_current_scope(table);
+    exit_scope(table);
     return 0;
 }
 
 // Check a condition (e.g., in if statements)
 int check_condition(ASTNode* node, SymbolTable* table) {
+    Symbol* s[2];
+    int t[2];
+    
+    switch (node->type){
+        case AST_BINOP:
+        case AST_UNARYOP:
+            if (!node->left || !node->right) semantic_error(SEM_ERROR_INVALID_OPERATION, node->current.lexeme, node->current.line);
+
+            ASTNode* nodes[2] = {node->right, node->left};
+
+            for (int i = 0; i < 2; i++)
+            {
+                // check if symbol exists
+                switch (nodes[i]->type){
+                    case AST_IDENTIFIER:
+                    case AST_FUNCTION_CALL:
+                        s[i] = lookup_symbol(table, nodes[i]->current.lexeme);
+                        if (!s[i]){
+                            semantic_error(SEM_ERROR_UNDECLARED_VARIABLE, nodes[i]->current.lexeme, nodes[i]->current.line);
+                            return 1;
+                        }
+                        break;
+                    case AST_LITERAL:
+                        t[i] = nodes[i]->current.type;
+                        break;
+                }
+            }
+            if (t[0] != t[1])
+            semantic_error(SEM_ERROR_TYPE_MISMATCH, node->current.lexeme, node->current.line);
+            break;
+    }
     return 0;
 }
-
 
 /*
 

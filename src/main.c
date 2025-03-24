@@ -26,6 +26,7 @@ int main(int argc, char* argv[]) {
         free(input);
     } else {
         const char* testInputs[] = {
+        "{int x; x += 2 * 4 + 2;}",
         "int main(){ int x = 0; }",
         "x = 5;",
         "uint x = 5 + 2 * 3;",
@@ -37,7 +38,6 @@ int main(int argc, char* argv[]) {
         "x = ((2 + 3) * (4 - 1)) / 5;",
         "print (1 + 2 * 3 - 4 / 2);",
         "x = (1 == x) * 4 && 1 + 45 / 5 % 6 + 1 * 2;",
-        "while (0 == 1) { x += 1; }",
         "int main(){ string x = \"hey\"; }",
         "if ((0 + 1 == 1) && (1 + 0 == 1)) { print 1; }",
         //"float f = 3.14;", // FLOATS DO NOT WORK
