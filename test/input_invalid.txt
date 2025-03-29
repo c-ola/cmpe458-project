@@ -1,3 +1,41 @@
 string s5 = \"unterminated string\n  // Error case
 "string s6 = \"invalid escape \\q sequence\";\n; // Error case
 int x ==== 123 + 5; // error case
+
+// Test file with semantic errors
+x = 5;           // Error: x not declared
+int x;
+int x;           // Error: x redeclared
+int y;
+y = z + 5;       // Error: z not declared
+if (x > 0) {
+    int y;
+}
+y = 5;           // OK: using outer scope y
+print undefined; // Error: undefined not declared
+
+// Inputs intentionally containing errors to verify parser's error detection.
+
+int x
+// Expect an error: "Expected ';' after variable declaration"
+
+if (x > 10 {
+    print "bad paren";
+}
+// Error: "Expected ')' after if condition"
+
+mystery varName; 
+// Error: "Expected a type, found something else"
+
+int func(int a) {
+    a = a + 1;
+// No closing '}' => "Expected '}' at end of block"
+
+x = 5 # 2;
+// There's no '#' operator => "Unexpected token in parse_primary" or "Expected an assignment operator"
+
+x = 10 ++ 3;
+// "Consecutive operators not allowed" or parse error
+
+string s = "bad string;
+// "Lexer error: Unterminated string" or parse error if it passes the lexer

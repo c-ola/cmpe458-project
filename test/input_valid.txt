@@ -10,3 +10,78 @@ string s = "hello world;"
 string s2 = "string with \"escaped quotes\";"
 string s3 = "newline\\ncharacter;"
 string s4 = "tab\tcharacter";
+
+int x;     // Declaration
+int y;     // Another declaration
+x = 5;     // Initialization
+y = x + 2; // Using initialized variable
+if (x > 0) {
+    int z;     // Declaration in nested scope
+    z = x + y; // Using outer scope variables
+    print z;
+}
+
+int x;
+float f = 3.14;
+string s = "hello parser";
+
+x = 5 + 2 * 3;
+x += 10;
+
+if (x > 0) { 
+    print "x is positive";
+} else {
+    print "x is non-positive";
+}
+
+while (x < 10) {
+    x += 1;
+    print x;
+}
+
+repeat {
+    x += 2;
+} until (x >= 20)
+
+factorial(5);
+
+int foo(int a, float b) {
+    b = b + a;
+    return b;
+}
+foo(2, 3.5);
+
+if ((x == 20) && (foo(2, 2.0) > 4)) {
+    print "nested logic ok";
+}
+
+
+// Test comment
+// Test comment
+/* here 
+
+*/
+int main(string args) {
+/*
+ comment
+*/
+    int k;
+    k = 1;
+    repeat {
+        uint x = 10;
+        while ( x != 0 ) {
+            if (x == 5) {
+                print "0xdeadbeef";
+            } else {
+                print x;
+            }
+            x -= 1;
+        }
+        foo(k, x);
+        k += 1;
+    } until (k >= 3);
+}
+
+string foo(int x, int y) {
+    print x + y;
+}

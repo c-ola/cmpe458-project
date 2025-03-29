@@ -3,11 +3,28 @@
 
 #include "parser.h"
 
+// Define DataType enum first
+typedef enum {
+    TYPE_INT,
+    TYPE_UINT,
+    TYPE_FLOAT,
+    TYPE_STRING,
+    TYPE_CHAR,
+    TYPE_UNKNOWN
+} DataType;
+
+// Type compatibility result
+typedef enum {
+    TYPE_COMPAT_OK,
+    TYPE_COMPAT_CONVERT,
+    TYPE_COMPAT_ERROR
+} TypeCompatibility;
+
 // Symbol table structures
 typedef struct Symbol {
     char name[100];
-    int type;
-    int scope_level; 
+    DataType type;  // Now DataType is defined before use
+    int scope_level;
     int line_declared;
     int is_initialized;
     struct Symbol* next;
@@ -51,5 +68,10 @@ int check_condition(ASTNode* node, SymbolTable* table);
 
 // Error reporting
 void semantic_error(SemanticErrorType error, const char* name, int line);
+
+// Type checking utility functions
+TypeCompatibility check_type_compatibility(DataType left, DataType right);
+DataType get_result_type(DataType left, DataType right, const char* operator);
+DataType get_expression_type(ASTNode* node, SymbolTable* table);
 
 #endif // SEMANTIC_H
