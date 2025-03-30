@@ -24,7 +24,7 @@ SymbolTable* init_symbol_table() {
 
 // Add a symbol to the table
 // Inserts a new variable with given name, type, and line number into the current scope
-void add_symbol(SymbolTable* table, const char* name, int type, int line) {
+Symbol* add_symbol(SymbolTable* table, const char* name, int type, int line) {
     Symbol* symbol = malloc(sizeof(Symbol));
     if (symbol) {
         strcpy(symbol->name, name);
@@ -32,10 +32,10 @@ void add_symbol(SymbolTable* table, const char* name, int type, int line) {
         symbol->scope_level = table->current_scope;
         symbol->line_declared = line;
         symbol->is_initialized = 0;
-        
         symbol->next = table->head;
         table->head = symbol;
     }
+    return symbol;
 }
 
 // Look up a symbol in the table
@@ -44,7 +44,7 @@ void add_symbol(SymbolTable* table, const char* name, int type, int line) {
 Symbol* lookup_symbol(SymbolTable* table, const char* name) {
     Symbol* current = table->head;
     while (current) {
-        if (strcmp(current->name, name) == 0) {
+        if (strcmp(current->name, name) == 0 && current->scope_level <= table->current_scope) {
             return current;
         }
         current = current->next;
@@ -192,7 +192,7 @@ int check_declaration(ASTNode* node, SymbolTable* table) {
             printf("Found Function Declaration Args and Block\n");
             enter_scope(table);
             int result = check_args(func_args, table) && check_block(func_block, table);
-            remove_symbols_in_current_scope(table);
+            //remove_symbols_in_current_scope(table);
             exit_scope(table);
             return result;
         }
@@ -208,15 +208,19 @@ int check_declaration(ASTNode* node, SymbolTable* table) {
 
         // When we add a symbol, mark it as initialized immediately
         // This fixes the issue with 'int x;' being considered uninitialized
-        const DataType t = check_type(node->current.lexeme);
-
-        add_symbol(table, name, t, assignment->left->current.line);
-        printf("Symbol declared %s of type %d\n", name, t);
-
-        Symbol* symbol = lookup_symbol_current_scope(table, name);
+        const DataType lhs_type = check_type(node->current.lexeme);
+        Symbol* symbol = add_symbol(table, name, lhs_type, assignment->left->current.line);
+        printf("Symbol declared %s of type %d\n", name, lhs_type);
         if (symbol) symbol->is_initialized = 1;  // Mark as initialized upon declaration
-        int result = check_statement(assignment->right, table);
-        return result;
+        if (!check_expression(assignment->right, table)) {
+            return 0;
+        }
+        const DataType rhs_type = get_expression_type(assignment->right, table);
+        
+        if (check_type_compatibility(lhs_type, rhs_type) == TYPE_COMPAT_ERROR) {
+            semantic_error(SEM_ERROR_TYPE_MISMATCH, name, assignment->left->current.line);
+            return 0;
+        }
     }
 
     return 1;
@@ -246,28 +250,26 @@ int check_assignment(ASTNode* node, SymbolTable* table) {
 
     const char* name = node->left->current.lexeme;
     printf("Checking assignment to variable '%s'\n", name);
-    
+
     Symbol* symbol = lookup_symbol(table, name);
     if (!symbol) {
         semantic_error(SEM_ERROR_UNDECLARED_VARIABLE, name, node->left->current.line);
         return 0;
     }
-    
-    // Handle compound assignments (+=, -=, etc.)
-    if (node->type == AST_ASSIGN && strchr(node->current.lexeme, '+')) {
+
+    if (node->type == AST_ASSIGN) {
         DataType left_type = symbol->type;
         DataType right_type = get_expression_type(node->right, table);
 
-        // Remove the initialization check since variables are initialized upon declaration
         if ((left_type == TYPE_INT || left_type == TYPE_UINT || left_type == TYPE_CHAR) && 
             (right_type == TYPE_INT || right_type == TYPE_UINT || right_type == TYPE_CHAR)) {
             return 1;
         }
-        
-        semantic_error(SEM_ERROR_TYPE_MISMATCH, "+=", node->current.line);
+
+        semantic_error(SEM_ERROR_TYPE_MISMATCH, symbol->name, node->current.line);
         return 0;
     }
-    
+
     // Regular assignment
     return check_expression(node->right, table);
 }
@@ -306,8 +308,8 @@ DataType get_expression_type(ASTNode* node, SymbolTable* table) {
             return get_result_type(left_type, right_type, node->current.lexeme);
         }
 
-        case AST_FACTORIAL: {
-            DataType operand_type = get_expression_type(node->left, table);
+        case AST_FUNCTION_CALL: {
+            DataType operand_type = get_expression_type(node->body, table);
             if (operand_type != TYPE_INT && operand_type != TYPE_UINT) {
                 semantic_error(SEM_ERROR_TYPE_MISMATCH, "factorial", node->current.line);
                 return TYPE_UNKNOWN;
@@ -375,6 +377,9 @@ int check_expression(ASTNode* node, SymbolTable* table) {
         case AST_LITERAL:
             printf("Literal '%s'\n", node->current.lexeme);
             break;
+        case AST_FUNCTION_CALL:
+            printf("Function Call '%s'\n", node->current.lexeme);
+            break;
         default:
             printf("Unknown expression type\n");
     }
@@ -389,15 +394,14 @@ int check_expression(ASTNode* node, SymbolTable* table) {
 
             DataType left_type = get_expression_type(node->left, table);
             DataType right_type = get_expression_type(node->right, table);
-            
             TypeCompatibility compat = check_type_compatibility(left_type, right_type);
             if (compat == TYPE_COMPAT_ERROR) {
                 semantic_error(SEM_ERROR_TYPE_MISMATCH, node->current.lexeme, node->current.line);
                 return 0;
             }
-            
             // Get the result type and store it for future use
-            node->type = get_result_type(left_type, right_type, node->current.lexeme);
+            // THIS IS NOT ALLOWED
+            //node->type = get_result_type(left_type, right_type, node->current.lexeme);
 
             // Add division by zero check
             if (strcmp(node->current.lexeme, "/") == 0) {
@@ -422,10 +426,12 @@ int check_expression(ASTNode* node, SymbolTable* table) {
             // Validate unary operator compatibility
             if (strcmp(node->current.lexeme, "!") == 0) {
                 // Logical NOT - result is always boolean (int)
-                node->type = TYPE_INT;
+                // THIS IS NOT ALLOWED
+                //node->type = TYPE_INT;
             } else if (strcmp(node->current.lexeme, "-") == 0) {
                 // Numeric negation - preserve operand type
-                node->type = operand_type;
+                // THIS IS NOT ALLOWED
+                //node->type = operand_type;
             }
             return 1;
         }
@@ -440,26 +446,33 @@ int check_expression(ASTNode* node, SymbolTable* table) {
             
             // Special handling for factorial
             if (strcmp(func_name, "factorial") == 0) {
+                //print_symbol_table(table);
                 // Factorial requires exactly one argument
-                if (!node->left || node->left->next) {
+                if (!node->body || node->body->next) {
                     semantic_error(SEM_ERROR_INVALID_OPERATION, "factorial requires exactly one argument", node->current.line);
                     return 0;
                 }
                 
                 // Check argument type (must be int or uint)
-                DataType arg_type = get_expression_type(node->left, table);
+                DataType arg_type = get_expression_type(node->body, table);
                 if (arg_type != TYPE_INT && arg_type != TYPE_UINT) {
                     semantic_error(SEM_ERROR_TYPE_MISMATCH, "factorial argument must be integer", node->current.line);
                     return 0;
                 }
                 
+                // this doesnt make sense, can't make the node type a DataType
+                // it's supposed to be a ASTType
+                // it also doesn't work
                 // Factorial returns int
-                node->type = TYPE_INT;
+                //node->type = TYPE_INT;
                 return 1;
             }
             
             // Add other function validations here if needed
-            semantic_error(SEM_ERROR_INVALID_OPERATION, "unknown function", node->current.line);
+            Symbol* symbol = lookup_symbol(table, func_name);
+            //print_symbol_table(table);
+            if (!symbol)
+                semantic_error(SEM_ERROR_INVALID_OPERATION, "unknown function", node->current.line);
             return 0;
         }
         
@@ -522,7 +535,7 @@ int check_statement(ASTNode* node, SymbolTable* table) {
                 result = 0;
             }
             break;
-        case AST_PRINT: {
+        case AST_PRINT:
             // Print statement must have an expression to print
             if (!node->body) {
                 semantic_error(SEM_ERROR_INVALID_OPERATION, "print statement requires an expression", node->current.line);
@@ -534,11 +547,13 @@ int check_statement(ASTNode* node, SymbolTable* table) {
             
             // All types are printable, so no need for type checking
             return result;
-        }
-        case AST_FUNCTION_CALL: {
+        case AST_FUNCTION_CALL:
             // Validate function call as a statement
             return check_expression(node, table);
-        }
+        default:
+            break;
+
+
     }
     return result;
 }
@@ -554,7 +569,7 @@ int check_block(ASTNode* node, SymbolTable* table) {
         temp = temp->next;
     }
     //print_symbol_table(table);
-    remove_symbols_in_current_scope(table);
+    //remove_symbols_in_current_scope(table);
     exit_scope(table);
     return result;
 }

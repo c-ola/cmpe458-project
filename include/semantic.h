@@ -48,7 +48,8 @@ typedef enum {
 
 // Symbol table functions
 SymbolTable* init_symbol_table(void);
-void add_symbol(SymbolTable* table, const char* name, int type, int line);
+Symbol* add_symbol(SymbolTable* table, const char* name, int type, int line);
+void add_arg(Symbol* symbol, Symbol* arg);
 Symbol* lookup_symbol(SymbolTable* table, const char* name);
 Symbol* lookup_symbol_current_scope(SymbolTable* table, const char* name);
 void enter_scope(SymbolTable* table);

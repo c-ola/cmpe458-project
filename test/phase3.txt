@@ -1,0 +1,16 @@
+int x = 0;
+float k = 1.0 + 2.0;
+k = 1.0 + 2.0 * 3.0 * "c";
+
+int foo(int z) {
+    int x = factorial(z);
+    x = factorial(z);
+    float k = factorial(z);
+    int b = factorial(k);
+}
+
+int main(int x, int y){
+    int main(float x){}
+    foo(x);
+}
+

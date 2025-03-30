@@ -1,0 +1,13 @@
+int x = 0;
+float k = 1.0 + 2.0;
+
+int main(int x, int y){
+    int main(float x){}
+
+}
+
+int foo(int z) {
+    int x = factorial(a);
+    x = factorial(a);
+}
+
