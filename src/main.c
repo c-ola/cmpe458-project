@@ -19,11 +19,19 @@ int main(int argc, char* argv[]) {
             fclose(fp);
         }
         PARSE_INFO("Analyzing input:\n%s\n\n", input);
+#ifdef DEBUG
+        print_token_stream(testInputs[i]);
+#endif
         Parser parser = new_parser(input);
-        ASTNode *programNode = parse_program(&parser);
+        parse(&parser);
+        // using this so that the parse 
+        //parse(&parser);
 
-        // parse(&parser);
+        analyze_semantics(parser.root);
+
         free_parser(parser);
+        // parse(&parser);
+        //free_parser(parser);
         free(input);
     } else {
         const char* testInputs[] = {

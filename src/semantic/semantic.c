@@ -227,17 +227,12 @@ int check_program(ASTNode* node, SymbolTable* table) {
     if (!node) return 1;
 
     int result = 1;
-    switch (node->type){
-        case AST_PROGRAM:
-            if (node->body) {
-                result = check_statement(node->body, table) && result;
-            }
-            
-            // Check right child (rest of program)
-            if (node->next) {
-                result = check_program(node->right, table) && result;
-            }
-            break;
+    if (node->body) {
+        ASTNode* cur = node->body;
+        while (cur) {
+            result = check_statement(cur, table) && result;
+            cur = cur->next;
+        }
     }
 
     return result;
