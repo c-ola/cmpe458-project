@@ -205,10 +205,10 @@ int check_assignment(ASTNode* node, SymbolTable* table) {
     if (node->type == AST_ASSIGN && strchr(node->current.lexeme, '+')) {
         DataType left_type = symbol->type;
         DataType right_type = get_expression_type(node->right, table);
-        
+
         // Remove the initialization check since variables are initialized upon declaration
-        if (left_type == TYPE_INT && 
-            (right_type == TYPE_INT || right_type == TYPE_UINT)) {
+        if ((left_type == TYPE_INT || left_type == TYPE_UINT || left_type == TYPE_CHAR) && 
+            (right_type == TYPE_INT || right_type == TYPE_UINT || right_type == TYPE_CHAR)) {
             return 1;
         }
         
