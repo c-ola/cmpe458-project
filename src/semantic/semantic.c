@@ -142,13 +142,22 @@ int analyze_semantics(ASTNode* ast) {
     return result;
 }
 
+DataType check_type(char* lexemme){
+    if (strcmp(lexemme, "int") == 0) return TYPE_INT;
+    else if (strcmp(lexemme, "uint") == 0) return TYPE_UINT;
+    else if (strcmp(lexemme, "float") == 0) return TYPE_FLOAT;
+    else if (strcmp(lexemme, "string") == 0) return TYPE_STRING;
+    else if (strcmp(lexemme, "char") == 0) return TYPE_CHAR;
+    else return TYPE_UNKNOWN;
+}
+
 // Check a variable declaration
 int check_declaration(ASTNode* node, SymbolTable* table) {
-    if (node->type != AST_VARDECL) {
-        return 0;
-    }
+    if (node->type != AST_VARDECLTYPE) return 0;
+
+    printf("Checking\n");
     
-    const char* name = node->current.lexeme;
+    const char* name = node->body->current.lexeme;
     Symbol* existing = lookup_symbol_current_scope(table, name);
     if (existing) {
         semantic_error(SEM_ERROR_REDECLARED_VARIABLE, name, node->current.line);
@@ -157,11 +166,14 @@ int check_declaration(ASTNode* node, SymbolTable* table) {
 
     // When we add a symbol, mark it as initialized immediately
     // This fixes the issue with 'int x;' being considered uninitialized
-    add_symbol(table, name, node->type, node->current.line);
+    const DataType t = check_type(node->current.lexeme);
+
+    add_symbol(table, node->body->current.lexeme, t, node->current.line);
+    printf("Symbol declared %s of type %d", node->body->current.lexeme, t);
+
     Symbol* symbol = lookup_symbol_current_scope(table, name);
-    if (symbol) {
-        symbol->is_initialized = 1;  // Mark as initialized upon declaration
-    }
+    if (symbol) symbol->is_initialized = 1;  // Mark as initialized upon declaration
+    
     return 1;
 }
 
@@ -219,20 +231,6 @@ int check_assignment(ASTNode* node, SymbolTable* table) {
     // Regular assignment
     return check_expression(node->right, table);
 }
-
-// Check an expression for type correctness
-//int check_expression(ASTNode* node, SymbolTable* table) {
-//    if (!node) return 0;
-
-//     switch (node->type){
-//         case AST_BINOP:
-//             break;
-        
-    //    case AST_UNARYOP:
-    //        break;
-    //}
-
-//}
 
 DataType get_expression_type(ASTNode* node, SymbolTable* table) {
     if (!node) return TYPE_UNKNOWN;
@@ -440,7 +438,7 @@ int check_statement(ASTNode* node, SymbolTable* table) {
         case AST_VARDECLTYPE:
         case AST_VARDECLFUNC:
         // case AST_VARDECL:
-            result = check_declaration(node->body, table) && result;
+            result = check_declaration(node, table) && result;
             break;
         case AST_ASSIGN:
             result = check_assignment(node, table) && result;

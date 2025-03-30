@@ -55,6 +55,7 @@ void enter_scope(SymbolTable* table);
 void exit_scope(SymbolTable* table);
 void remove_symbols_in_current_scope(SymbolTable* table);
 void free_symbol_table(SymbolTable* table);
+void print_symbol_table(SymbolTable* table);
 
 // Semantic analysis functions
 int analyze_semantics(ASTNode* ast);

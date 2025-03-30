@@ -522,27 +522,21 @@ ASTNode* parse_function_args(Parser* parser) {
         return NULL;
     }
     while (1) {
-        if (!CONTAINS_STR(TYPES, parser->current.lexeme)) {
-            PARSE_ERROR_S(parser, EXPECTED_TYPE_IN_FUNC_DECL);
-        }
+        if (!CONTAINS_STR(TYPES, parser->current.lexeme)) PARSE_ERROR_S(parser, EXPECTED_TYPE_IN_FUNC_DECL);
         Token type = parser->current;
         // Could be strict here to make semantics easier
         // Or lax, making parser easier but semantics harder
         ASTNode* arg_type = create_node(AST_VARDECLTYPE, &parser->current);
-        if (func_args == NULL) {
-            func_args = arg_type;
-        }
+        
+        if (func_args == NULL) func_args = arg_type;
         advance(parser);
-        if (parser->current.type != TOKEN_IDENTIFIER) {
-            PARSE_ERROR(parser, EXPECTED_IDENTIFIER, "with type %s", type.lexeme);
-        }
+        if (parser->current.type != TOKEN_IDENTIFIER) PARSE_ERROR(parser, EXPECTED_IDENTIFIER, "with type %s", type.lexeme);
+        
         arg_type->body = create_node(AST_VARDECL, &parser->current);
-        if (arg_type != func_args)
-            func_args->next = arg_type;
+        if (arg_type != func_args) func_args->next = arg_type;
+        
         advance(parser);
-        if (!isDelimiter(parser->current, ",")) {
-            break;
-        }
+        if (!isDelimiter(parser->current, ",")) break;
         advance(parser);
     }
     if (!isDelimiter(parser->current, ")")) {
