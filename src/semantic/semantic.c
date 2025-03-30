@@ -151,6 +151,17 @@ DataType check_type(char* lexemme){
     else return TYPE_UNKNOWN;
 }
 
+
+int check_args(ASTNode *node, SymbolTable *table) {
+    ASTNode* cur = node;
+    int result = 1;
+    while (cur) {
+        result = check_declaration(cur, table) && result;
+        cur = cur->next;
+    }
+    return result;
+}
+
 // Check a variable declaration
 int check_declaration(ASTNode* node, SymbolTable* table) {
     if (node->type != AST_VARDECLTYPE) return 0;
@@ -176,8 +187,14 @@ int check_declaration(ASTNode* node, SymbolTable* table) {
         Symbol* symbol = lookup_symbol_current_scope(table, name);
         if (symbol) symbol->is_initialized = 1;  // Mark as initialized upon declaration
         ASTNode* func_block = node->body->body;
-        if (func_block) {
-            return check_block(func_block, table);
+        ASTNode* func_args = node->body->right;
+        if (func_block && func_args) {
+            printf("Found Function Declaration Args and Block\n");
+            enter_scope(table);
+            int result = check_args(func_args, table) && check_block(func_block, table);
+            remove_symbols_in_current_scope(table);
+            exit_scope(table);
+            return result;
         }
     } else if (node->body->type == AST_ASSIGN) {
         ASTNode* assignment = node->body;

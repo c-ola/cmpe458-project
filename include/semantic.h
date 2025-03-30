@@ -60,6 +60,7 @@ void print_symbol_table(SymbolTable* table);
 // Semantic analysis functions
 int analyze_semantics(ASTNode* ast);
 int check_declaration(ASTNode* node, SymbolTable* table);
+int check_args(ASTNode* node, SymbolTable* table);
 int check_program(ASTNode* node, SymbolTable* table);
 int check_assignment(ASTNode* node, SymbolTable* table);
 int check_expression(ASTNode* node, SymbolTable* table);
