@@ -156,24 +156,52 @@ int check_declaration(ASTNode* node, SymbolTable* table) {
     if (node->type != AST_VARDECLTYPE) return 0;
 
     printf("Checking\n");
-    
-    const char* name = node->body->current.lexeme;
-    Symbol* existing = lookup_symbol_current_scope(table, name);
-    if (existing) {
-        semantic_error(SEM_ERROR_REDECLARED_VARIABLE, name, node->current.line);
-        return 0;
+
+    if (node->body->type == AST_VARDECL) {
+        printf("vardecl %s\n", node->body->current.lexeme);
+        const char* name = node->body->current.lexeme;
+        Symbol* existing = lookup_symbol_current_scope(table, name);
+        if (existing) {
+            semantic_error(SEM_ERROR_REDECLARED_VARIABLE, name, node->current.line);
+            return 0;
+        }
+
+        // When we add a symbol, mark it as initialized immediately
+        // This fixes the issue with 'int x;' being considered uninitialized
+        const DataType t = check_type(node->current.lexeme);
+
+        add_symbol(table, name, t, node->current.line);
+        printf("Symbol declared %s of type %d\n", node->body->current.lexeme, t);
+
+        Symbol* symbol = lookup_symbol_current_scope(table, name);
+        if (symbol) symbol->is_initialized = 1;  // Mark as initialized upon declaration
+        ASTNode* func_block = node->body->body;
+        if (func_block) {
+            return check_block(func_block, table);
+        }
+    } else if (node->body->type == AST_ASSIGN) {
+        ASTNode* assignment = node->body;
+        const char* name = assignment->left->current.lexeme;
+        printf("vardecl assign %s\n", name);
+        Symbol* existing = lookup_symbol_current_scope(table, name);
+        if (existing) {
+            semantic_error(SEM_ERROR_REDECLARED_VARIABLE, name, assignment->left->current.line);
+            return 0;
+        }
+
+        // When we add a symbol, mark it as initialized immediately
+        // This fixes the issue with 'int x;' being considered uninitialized
+        const DataType t = check_type(node->current.lexeme);
+
+        add_symbol(table, name, t, assignment->left->current.line);
+        printf("Symbol declared %s of type %d\n", name, t);
+
+        Symbol* symbol = lookup_symbol_current_scope(table, name);
+        if (symbol) symbol->is_initialized = 1;  // Mark as initialized upon declaration
+        int result = check_statement(assignment->right, table);
+        return result;
     }
 
-    // When we add a symbol, mark it as initialized immediately
-    // This fixes the issue with 'int x;' being considered uninitialized
-    const DataType t = check_type(node->current.lexeme);
-
-    add_symbol(table, node->body->current.lexeme, t, node->current.line);
-    printf("Symbol declared %s of type %d", node->body->current.lexeme, t);
-
-    Symbol* symbol = lookup_symbol_current_scope(table, name);
-    if (symbol) symbol->is_initialized = 1;  // Mark as initialized upon declaration
-    
     return 1;
 }
 
@@ -189,7 +217,7 @@ int check_program(ASTNode* node, SymbolTable* table) {
             }
             
             // Check right child (rest of program)
-            if (node->right) {
+            if (node->next) {
                 result = check_program(node->right, table) && result;
             }
             break;
@@ -513,7 +541,7 @@ int check_block(ASTNode* node, SymbolTable* table) {
         result = check_statement(temp, table) && result;
         temp = temp->next;
     }
-
+    //print_symbol_table(table);
     remove_symbols_in_current_scope(table);
     exit_scope(table);
     return result;

@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "parser.h"
+#include "semantic.h"
 
 #define MAXBUFLEN 1000000
 int main(int argc, char* argv[]) {
@@ -26,7 +27,7 @@ int main(int argc, char* argv[]) {
         free(input);
     } else {
         const char* testInputs[] = {
-        "{int x; x += 2 * 4 + 2;}",
+        "int main(){int y = 3; int x; x += 2 * 4 + 2;}",
         "int main(){ int x = 0; }",
         "x = 5;",
         "uint x = 5 + 2 * 3;",

@@ -152,16 +152,20 @@ static void print_ast_recursive(ASTNode *node, int level) {
             printf("Unknown AST Node\n"); break;
     }
     if (node->left) {
+        printf("left: ");
         print_ast_recursive(node->left,  level+1);
     }
     if (node->right) {
+        printf("right: ");
         print_ast_recursive(node->right, level+1);
     }
 
     if (node->body) {
+        printf("body: ");
         print_ast_recursive(node->body, level+1);
     }
     if(node->next){
+        printf("next: ");
         print_ast_recursive(node->next,level);
     }
 }
@@ -338,6 +342,7 @@ ASTNode* parse_block(Parser* parser) {
         ASTNode* stmt = NULL;
 
         if (CONTAINS_STR(TYPES, parser->current.lexeme)) {
+            printf("here\n");
             stmt = parse_declaration(parser);
         } else {
             stmt = parse_statement(parser);
@@ -571,7 +576,7 @@ ASTNode* parse_declaration(Parser* parser) {
     if (CONTAINS_STR(ASSIGNMENTS, parser->current.lexeme)) {
         PARSE_INFO("parse_declaration assignment -> found '%s'\n", parser->current.lexeme);
         ASTNode* assignmnent = parse_assignment(parser, lhs);
-        declNode->next = assignmnent;
+        declNode->body = assignmnent;
         if (isDelimiter(parser->current, ";")) {
             advance(parser); // consume ';'
         } else if (isDelimiter(parser->current, "}")) {
